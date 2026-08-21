@@ -20,7 +20,7 @@
   - Verify: Unit test in `tests/clock.test.ts`.
   - Files: `src/lib/time/clock.ts`.
 
-- [ ] **Task 1.4: Add Docker Compose for PostgreSQL**
+- [x] **Task 1.4: Add Docker Compose for PostgreSQL**
   - Description: Create `docker-compose.yml` for local PostgreSQL 16 on port 5432 with volume persistence and healthcheck.
   - Acceptance: `docker compose up -d` starts PostgreSQL instance seamlessly.
   - Verify: Run `docker compose config`.

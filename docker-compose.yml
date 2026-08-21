@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: revive-ai-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: revive
+      POSTGRES_PASSWORD: revive_dev
+      POSTGRES_DB: revive_ai
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U revive -d revive_ai"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+    driver: local
