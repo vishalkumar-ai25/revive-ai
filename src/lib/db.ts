@@ -7,6 +7,12 @@
 
 import { PrismaClient } from "@prisma/client";
 
+try {
+  process.loadEnvFile?.();
+} catch {
+  // Ignore missing .env in environments where env vars are injected directly
+}
+
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
