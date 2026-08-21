@@ -17,6 +17,10 @@
 
 import type { EscalationLevel, PaymentMethod, RecoveryStrategy } from "@prisma/client";
 import { BANK_RETRY_WINDOWS, STRATEGY_WEIGHTS } from "@/lib/constants";
+import {
+  channelForLevel,
+  currentEscalationLevel,
+} from "@/lib/engine/escalation-ladder";
 import type {
   DiagnosisResult,
   ExecutionParams,
@@ -57,14 +61,23 @@ export class StrategyAgent {
     event: PaymentFailureEvent,
     diagnosis: DiagnosisResult,
     riskAssessment: RiskAssessmentResult,
+    hoursSinceFailure?: number,
   ): StrategyResult {
+    const hours =
+      hoursSinceFailure ??
+      Math.max(
+        0,
+        (this.clock.now().getTime() - event.timestamp.getTime()) /
+          (1000 * 60 * 60),
+      );
+
     // If risk assessment says don't attempt, return DO_NOTHING
     if (!riskAssessment.shouldAttemptRecovery) {
       return {
         strategy: "DO_NOTHING",
         reasoning: `Recovery skipped: ${riskAssessment.reasoning}`,
         confidence: 0.95,
-        executionParams: this.buildParams("DO_NOTHING", event, diagnosis),
+        executionParams: this.buildParams("DO_NOTHING", event, diagnosis, hours),
       };
     }
 
@@ -80,7 +93,7 @@ export class StrategyAgent {
         strategy: "DO_NOTHING",
         reasoning: "No applicable recovery strategy found.",
         confidence: 0.5,
-        executionParams: this.buildParams("DO_NOTHING", event, diagnosis),
+        executionParams: this.buildParams("DO_NOTHING", event, diagnosis, hours),
       };
     }
 
@@ -88,7 +101,7 @@ export class StrategyAgent {
       strategy: best.strategy,
       reasoning: best.reasoning,
       confidence: Math.round(best.score * 100) / 100,
-      executionParams: this.buildParams(best.strategy, event, diagnosis),
+      executionParams: this.buildParams(best.strategy, event, diagnosis, hours),
     };
   }
 
@@ -140,6 +153,7 @@ export class StrategyAgent {
     strategy: RecoveryStrategy,
     event: PaymentFailureEvent,
     diagnosis: DiagnosisResult,
+    hoursSinceFailure: number = 0,
   ): ExecutionParams {
     const base: ExecutionParams = {
       scheduledAt: null,
@@ -160,15 +174,27 @@ export class StrategyAgent {
           messageContent: `Your payment of ₹${event.amount} didn't go through. We'll retry at a better time.`,
         };
 
-      case "CUSTOMER_NUDGE":
+      case "CUSTOMER_NUDGE": {
+        // Nudge escalation: <24h -> LEVEL_2_EMAIL ("email"), >=24h -> LEVEL_3_SMS ("sms")
+        const effectiveHours = Math.max(1, hoursSinceFailure);
+        const escalationLevel = currentEscalationLevel(effectiveHours);
+        const channelStr = channelForLevel(escalationLevel);
+        const channel = (channelStr === "none" ? null : channelStr) as
+          | "email"
+          | "sms"
+          | "onscreen"
+          | "merchant_dashboard"
+          | null;
+
         return {
           ...base,
           scheduledAt: this.calculateNudgeTime(),
-          channel: "email",
-          escalationLevel: "LEVEL_2_EMAIL" as EscalationLevel,
+          channel,
+          escalationLevel,
           messageContent: this.generateNudgeMessage(event, diagnosis),
           maxRetries: 1,
         };
+      }
 
       case "ALT_PAYMENT":
         return {

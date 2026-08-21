@@ -48,7 +48,7 @@
   - Verify: `npm test && npm run typecheck` — full diff required.
   - Files: `src/lib/engine/recovery-engine.ts`, `src/lib/agents/index.ts`, `src/lib/engine/stopping-rules.ts`, `tests/stopping-rules.test.ts`.
 
-- [ ] **Task 2.4: Wire `currentEscalationLevel()` into `CUSTOMER_NUDGE` channel selection**
+- [x] **Task 2.4: Wire `currentEscalationLevel()` into `CUSTOMER_NUDGE` channel selection**
   - Description: In `strategy-agent.ts::buildParams()`, replace hardcoded `LEVEL_2_EMAIL` / `channel: "email"` with `currentEscalationLevel(hoursSinceFailure)` → channel derived from `ESCALATION_CONFIG`. Includes `"sms"` branch at `LEVEL_3_SMS`. `StrategyAgent` requires `hoursSinceFailure` context — pass from `RecoveryEngine` via `select()` call.
   - Acceptance: A `CUSTOMER_NUDGE` attempt at < 1h uses email; at 24h–48h uses sms; `npm test` passes.
   - Verify: `npm test && npm run typecheck`.
