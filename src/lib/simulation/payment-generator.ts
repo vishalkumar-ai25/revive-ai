@@ -8,6 +8,7 @@
 import type { PaymentMethod } from "@prisma/client";
 import { SIMULATION } from "@/lib/constants";
 import type { PaymentFailureEvent } from "@/lib/types";
+import { type Clock, SystemClock } from "@/lib/time/clock";
 
 // ---------------------------------------------------------------------------
 // Error descriptions per failure type (realistic messages from Indian banks)
@@ -77,9 +78,11 @@ const ERROR_DESCRIPTIONS: Record<string, string[]> = {
 
 export class PaymentGenerator {
   private merchantId: string;
+  private clock: Clock;
 
-  constructor(merchantId: string) {
+  constructor(merchantId: string, clock: Clock = new SystemClock()) {
     this.merchantId = merchantId;
+    this.clock = clock;
   }
 
   /**
@@ -110,7 +113,7 @@ export class PaymentGenerator {
     const amount = this.generateAmount();
 
     // Generate realistic timestamp within the last 24 hours
-    const timestamp = new Date();
+    const timestamp = this.clock.now();
     timestamp.setHours(
       timestamp.getHours() - Math.floor(Math.random() * 24),
     );

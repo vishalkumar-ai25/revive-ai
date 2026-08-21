@@ -23,7 +23,7 @@ export class RecoveryEngine {
 
   constructor(clock: Clock = new SystemClock()) {
     this.clock = clock;
-    this.pipeline = new RecoveryPipeline();
+    this.pipeline = new RecoveryPipeline(clock);
     this.stoppingRules = new StoppingRulesEngine(clock);
     this.auditLogger = new AuditLogger();
   }

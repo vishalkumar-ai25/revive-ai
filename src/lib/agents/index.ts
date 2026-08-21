@@ -15,6 +15,7 @@ import { RiskAssessmentAgent } from "./risk-assessment-agent";
 import { StrategyAgent } from "./strategy-agent";
 import { AuditLogger } from "@/lib/audit/logger";
 import type { CustomerHistory, PaymentFailureEvent, PipelineResult } from "@/lib/types";
+import { type Clock, SystemClock } from "@/lib/time/clock";
 
 // ---------------------------------------------------------------------------
 // Pipeline
@@ -26,10 +27,10 @@ export class RecoveryPipeline {
   private strategyAgent: StrategyAgent;
   private auditLogger: AuditLogger;
 
-  constructor() {
+  constructor(clock: Clock = new SystemClock()) {
     this.diagnosisAgent = new DiagnosisAgent();
     this.riskAgent = new RiskAssessmentAgent();
-    this.strategyAgent = new StrategyAgent();
+    this.strategyAgent = new StrategyAgent(clock);
     this.auditLogger = new AuditLogger();
   }
 

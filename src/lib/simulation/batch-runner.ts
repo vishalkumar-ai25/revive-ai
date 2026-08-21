@@ -12,6 +12,7 @@ import { db } from "@/lib/db";
 import { RecoveryEngine } from "@/lib/engine/recovery-engine";
 import { PaymentGenerator } from "./payment-generator";
 import { SIMULATION } from "@/lib/constants";
+import { type Clock, SystemClock } from "@/lib/time/clock";
 
 interface BatchReport {
   totalPayments: number;
@@ -30,9 +31,9 @@ export class BatchRunner {
   private engine: RecoveryEngine;
   private generator: PaymentGenerator;
 
-  constructor(merchantId: string) {
-    this.engine = new RecoveryEngine();
-    this.generator = new PaymentGenerator(merchantId);
+  constructor(merchantId: string, clock: Clock = new SystemClock()) {
+    this.engine = new RecoveryEngine(clock);
+    this.generator = new PaymentGenerator(merchantId, clock);
   }
 
   /**
