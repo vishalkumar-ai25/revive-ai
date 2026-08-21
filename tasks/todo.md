@@ -8,7 +8,7 @@
   - Verify: Test with virtual time set to 11 PM IST.
   - Files: `src/lib/engine/stopping-rules.ts`.
 
-- [ ] **Task 1.2: Fix ESLint Rule Configuration**
+- [x] **Task 1.2: Fix ESLint Rule Configuration**
   - Description: Fix the broken `@typescript-eslint/no-unused-vars` rule in `.eslintrc.json` so `npm run lint` executes cleanly.
   - Acceptance: `npm run lint` passes without rule definition errors.
   - Verify: Run `npm run lint`.
