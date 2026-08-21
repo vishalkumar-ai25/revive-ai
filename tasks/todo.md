@@ -60,7 +60,7 @@
   - Verify: `npm test`.
   - Files: `src/lib/engine/recovery-engine.ts`, `tests/stopping-rules.test.ts`.
 
-- [ ] **Task 2.6: BatchRunner loop redesign — `intake()` + fixed 1h tick loop**
+- [x] **Task 2.6: BatchRunner loop redesign — `intake()` + fixed 1h tick loop**
   - Description: Replace single `processFailure()` call per payment with: (1) all events through `engine.intake()`; (2) fixed 1h tick loop advancing `VirtualClock` until `MAX_RECOVERY_WINDOW_HOURS + 1h` or no pending attempts remain; (3) `engine.tick(t)` each iteration with one batch query. `calculateReport()` reads final outcomes across all attempts.
   - Acceptance: 1,000-payment batch produces multi-attempt outcomes; `npm run simulate 1000` completes correctly.
   - Verify: `npm run simulate 100` (smoke test before 1000).

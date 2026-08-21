@@ -2,8 +2,13 @@
 // BATCH RUNNER — Run batch simulations and generate recovery reports
 // =============================================================================
 // Processes N simulated failed payments through the full recovery pipeline
-// and produces aggregate metrics. This satisfies the "measured money recovered
-// across a batch" requirement from the judging criteria.
+// with a fixed 1h virtual time progression loop across the recovery window.
+//
+// Multi-attempt lifecycle:
+//   1. All N events are ingested via engine.intake() at t0
+//   2. Virtual clock advances by 1h ticks up to MAX_RECOVERY_WINDOW_HOURS + 1h
+//   3. Each tick, engine.tick(asOf) processes due PENDING attempts in batch
+//   4. Aggregate metrics reflect complete multi-attempt recovery outcomes
 //
 // Usage: npx tsx src/lib/simulation/batch-runner.ts [count]
 // =============================================================================
@@ -11,8 +16,9 @@
 import { db } from "@/lib/db";
 import { RecoveryEngine } from "@/lib/engine/recovery-engine";
 import { PaymentGenerator } from "./payment-generator";
-import { SIMULATION } from "@/lib/constants";
-import { type Clock, SystemClock } from "@/lib/time/clock";
+import { SIMULATION, STOPPING_RULES } from "@/lib/constants";
+import { type Clock, VirtualClock } from "@/lib/time/clock";
+import type { Payment, RecoveryAttempt } from "@prisma/client";
 
 interface BatchReport {
   totalPayments: number;
@@ -27,69 +33,94 @@ interface BatchReport {
   fraudBlocked: number;
 }
 
+type PaymentWithAttempts = Payment & {
+  recoveryAttempts: RecoveryAttempt[];
+};
+
 export class BatchRunner {
   private engine: RecoveryEngine;
   private generator: PaymentGenerator;
+  private clock: VirtualClock;
 
-  constructor(merchantId: string, clock: Clock = new SystemClock()) {
-    this.engine = new RecoveryEngine(clock);
-    this.generator = new PaymentGenerator(merchantId, clock);
+  constructor(merchantId: string, clock?: Clock) {
+    const virtualClock =
+      clock instanceof VirtualClock ? clock : new VirtualClock(new Date());
+    this.clock = virtualClock;
+    this.engine = new RecoveryEngine(virtualClock);
+    this.generator = new PaymentGenerator(merchantId, virtualClock);
   }
 
   /**
-   * Run a batch simulation of N failed payments.
-   * Processes each payment through the full recovery pipeline and
-   * collects aggregate metrics.
+   * Run a batch simulation of N failed payments using a virtual time timeline.
    */
   async run(count: number = SIMULATION.DEFAULT_BATCH_SIZE): Promise<BatchReport> {
     console.info(`\n🚀 Starting batch simulation: ${count} payments\n`);
+    const startTime = performance.now();
 
+    // 1. Generate all synthetic events anchored at t0
     const events = this.generator.generateBatch(count);
-    const results: Array<{
-      strategy: string;
-      outcome: string;
-      processingTimeMs: number;
-      amount: number;
-      errorCode: string;
-    }> = [];
 
-    // Process each payment through the pipeline
+    // 2. Ingest all events (creates initial PENDING recovery attempts)
+    console.info(`  📥 Ingesting ${count} failed payment events...`);
     for (let i = 0; i < events.length; i++) {
       const event = events[i]!;
-
       try {
-        const result = await this.engine.processFailure(event);
-        results.push({
-          strategy: result.strategy,
-          outcome: result.outcome,
-          processingTimeMs: result.processingTimeMs,
-          amount: event.amount,
-          errorCode: event.errorCode,
-        });
+        await this.engine.intake(event);
       } catch (error) {
-        console.error(`  ❌ Error processing payment ${i + 1}:`, error);
-        results.push({
-          strategy: "ERROR",
-          outcome: "FAILED",
-          processingTimeMs: 0,
-          amount: event.amount,
-          errorCode: event.errorCode,
-        });
+        console.error(`  ❌ Error ingesting payment ${i + 1}:`, error);
       }
 
-      // Progress indicator every 100 payments
       if ((i + 1) % 100 === 0 || i === events.length - 1) {
-        console.info(`  📊 Processed ${i + 1}/${count} payments`);
+        console.info(`  📊 Ingested ${i + 1}/${count} payments`);
       }
     }
 
-    // --- Calculate aggregate metrics ---
-    const report = this.calculateReport(results);
+    // 3. Fixed 1-hour tick loop advancing VirtualClock across 72h window (+1h buffer)
+    const maxTicks = STOPPING_RULES.MAX_RECOVERY_WINDOW_HOURS + 1; // 73 ticks
+    console.info(`  ⏳ Progressing virtual time over ${maxTicks} hours...`);
 
-    // --- Persist batch run to database ---
+    for (let tickIndex = 0; tickIndex < maxTicks; tickIndex++) {
+      this.clock.advanceHours(1);
+      const currentTime = this.clock.now();
+
+      await this.engine.tick(currentTime);
+
+      // Check if any PENDING attempts remain
+      const pendingCount = await db.recoveryAttempt.count({
+        where: {
+          outcome: "PENDING",
+          payment: { status: "RECOVERY_IN_PROGRESS" },
+        },
+      });
+
+      if (pendingCount === 0) {
+        console.info(
+          `  ✨ All recovery attempts resolved at T+${tickIndex + 1}h`,
+        );
+        break;
+      }
+    }
+
+    const totalProcessingTimeMs = Math.round(performance.now() - startTime);
+
+    // 4. Fetch final payments with their full recovery attempt histories
+    const externalIds = events.map((e) => e.externalId);
+    const payments = await db.payment.findMany({
+      where: { externalId: { in: externalIds } },
+      include: {
+        recoveryAttempts: {
+          orderBy: { attemptNumber: "asc" },
+        },
+      },
+    });
+
+    // 5. Calculate aggregate report
+    const report = this.calculateReport(payments, totalProcessingTimeMs);
+
+    // 6. Persist batch run record
     await this.persistBatchRun(report);
 
-    // --- Print report ---
+    // 7. Print console report
     this.printReport(report);
 
     return report;
@@ -100,63 +131,61 @@ export class BatchRunner {
   // -------------------------------------------------------------------------
 
   private calculateReport(
-    results: Array<{
-      strategy: string;
-      outcome: string;
-      processingTimeMs: number;
-      amount: number;
-      errorCode: string;
-    }>,
+    payments: PaymentWithAttempts[],
+    totalDurationMs: number,
   ): BatchReport {
-    const totalPayments = results.length;
-    const totalAmountAtRisk = results.reduce((sum, r) => sum + r.amount, 0);
+    const totalPayments = payments.length;
+    const totalAmountAtRisk = payments.reduce((sum, p) => sum + p.amount, 0);
 
-    const recovered = results.filter((r) => r.outcome === "SUCCESS");
-    const paymentsRecovered = recovered.length;
-    const amountRecovered = recovered.reduce((sum, r) => sum + r.amount, 0);
-    const recoveryRate = totalPayments > 0 ? paymentsRecovered / totalPayments : 0;
+    const recoveredPayments = payments.filter((p) => p.status === "RECOVERED");
+    const paymentsRecovered = recoveredPayments.length;
+    const amountRecovered = recoveredPayments.reduce((sum, p) => sum + p.amount, 0);
+    const recoveryRate =
+      totalPayments > 0 ? paymentsRecovered / totalPayments : 0;
 
-    const processingTimes = results
-      .map((r) => r.processingTimeMs)
-      .filter((t) => t > 0);
-    const avgProcessingTimeMs = processingTimes.length > 0
-      ? processingTimes.reduce((a, b) => a + b, 0) / processingTimes.length
-      : 0;
+    const avgProcessingTimeMs =
+      totalPayments > 0 ? Math.round(totalDurationMs / totalPayments) : 0;
 
-    // By strategy breakdown
+    // By strategy breakdown (aggregating all attempted strategies across attempts)
     const byStrategy: Record<string, { count: number; recovered: number }> = {};
-    for (const r of results) {
-      if (!byStrategy[r.strategy]) {
-        byStrategy[r.strategy] = { count: 0, recovered: 0 };
-      }
-      byStrategy[r.strategy]!.count++;
-      if (r.outcome === "SUCCESS") {
-        byStrategy[r.strategy]!.recovered++;
+    for (const payment of payments) {
+      for (const attempt of payment.recoveryAttempts) {
+        if (!byStrategy[attempt.strategy]) {
+          byStrategy[attempt.strategy] = { count: 0, recovered: 0 };
+        }
+        byStrategy[attempt.strategy]!.count++;
+        if (attempt.outcome === "SUCCESS") {
+          byStrategy[attempt.strategy]!.recovered++;
+        }
       }
     }
 
     // By failure category breakdown
     const byFailureCategory: Record<string, { count: number; recovered: number }> = {};
-    for (const r of results) {
-      if (!byFailureCategory[r.errorCode]) {
-        byFailureCategory[r.errorCode] = { count: 0, recovered: 0 };
+    for (const payment of payments) {
+      const code = payment.errorCode ?? "UNKNOWN";
+      if (!byFailureCategory[code]) {
+        byFailureCategory[code] = { count: 0, recovered: 0 };
       }
-      byFailureCategory[r.errorCode]!.count++;
-      if (r.outcome === "SUCCESS") {
-        byFailureCategory[r.errorCode]!.recovered++;
+      byFailureCategory[code]!.count++;
+      if (payment.status === "RECOVERED") {
+        byFailureCategory[code]!.recovered++;
       }
     }
 
-    const stoppedByRules = results.filter((r) => r.outcome === "STOPPED_BY_RULE").length;
-    const fraudBlocked = results.filter((r) => r.errorCode === "FRAUD_DETECTED" || r.errorCode === "SUSPECTED_FRAUD").length;
+    const stoppedByRules = payments.filter((p) => p.status === "DEAD").length;
+    const fraudBlocked = payments.filter(
+      (p) =>
+        p.errorCode === "FRAUD_DETECTED" || p.errorCode === "SUSPECTED_FRAUD",
+    ).length;
 
     return {
       totalPayments,
       totalAmountAtRisk: Math.round(totalAmountAtRisk),
       paymentsRecovered,
       amountRecovered: Math.round(amountRecovered),
-      recoveryRate: Math.round(recoveryRate * 10000) / 100, // percentage with 2 decimals
-      avgProcessingTimeMs: Math.round(avgProcessingTimeMs),
+      recoveryRate: Math.round(recoveryRate * 10000) / 100,
+      avgProcessingTimeMs,
       byStrategy,
       byFailureCategory,
       stoppedByRules,
@@ -181,7 +210,8 @@ export class BatchRunner {
           retriesAttempted: report.byStrategy["SMART_RETRY"]?.count ?? 0,
           nudgesSent: report.byStrategy["CUSTOMER_NUDGE"]?.count ?? 0,
           altPaymentSuggested: report.byStrategy["ALT_PAYMENT"]?.count ?? 0,
-          escalatedToMerchant: report.byStrategy["ESCALATE_MERCHANT"]?.count ?? 0,
+          escalatedToMerchant:
+            report.byStrategy["ESCALATE_MERCHANT"]?.count ?? 0,
           stoppedByRules: report.stoppedByRules,
           fraudBlocked: report.fraudBlocked,
           completedAt: new Date(),
@@ -212,7 +242,10 @@ export class BatchRunner {
 
   STRATEGY BREAKDOWN:
 ${Object.entries(report.byStrategy)
-  .map(([s, v]) => `    ${s.padEnd(22)} ${v.count} attempted → ${v.recovered} recovered`)
+  .map(
+    ([s, v]) =>
+      `    ${s.padEnd(22)} ${v.count} attempted → ${v.recovered} recovered`,
+  )
   .join("\n")}
 
   STOPPING RULES:
@@ -229,7 +262,10 @@ ${Object.entries(report.byStrategy)
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const count = parseInt(process.argv[2] ?? String(SIMULATION.DEFAULT_BATCH_SIZE), 10);
+  const count = parseInt(
+    process.argv[2] ?? String(SIMULATION.DEFAULT_BATCH_SIZE),
+    10,
+  );
 
   // Ensure at least one merchant exists for simulation
   const merchant = await db.merchant.upsert({
