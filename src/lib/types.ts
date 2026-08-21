@@ -1,0 +1,166 @@
+// =============================================================================
+// CORE TYPES — ReviveAI
+// =============================================================================
+// Application-level types used across agents, engine, and API layer.
+// These complement (not duplicate) the Prisma-generated types.
+// =============================================================================
+
+import type {
+  EscalationLevel,
+  FailureCategory,
+  PaymentMethod,
+  RecoveryStrategy,
+} from "@prisma/client";
+
+// ---------------------------------------------------------------------------
+// Agent Pipeline Types
+// ---------------------------------------------------------------------------
+
+/** Raw payment failure event received from webhook / simulation. */
+export interface PaymentFailureEvent {
+  externalId: string;
+  merchantId: string;
+  customerId: string;
+  amount: number;
+  currency: string;
+  method: PaymentMethod;
+  bank: string | null;
+  upiApp: string | null;
+  errorCode: string;
+  errorDescription: string;
+  isRecurring: boolean;
+  subscriptionId: string | null;
+  mandateId: string | null;
+  timestamp: Date;
+}
+
+/** Output of the Diagnosis Agent. */
+export interface DiagnosisResult {
+  category: FailureCategory;
+  rootCause: string;
+  confidence: number; // 0.0 - 1.0
+  isRecoverable: boolean;
+  signals: DiagnosisSignal[];
+}
+
+/** Individual signal contributing to a diagnosis. */
+export interface DiagnosisSignal {
+  name: string;
+  value: string;
+  weight: number;
+}
+
+/** Output of the Risk Assessment Agent. */
+export interface RiskAssessmentResult {
+  recoveryProbability: number; // 0.0 - 1.0
+  shouldAttemptRecovery: boolean;
+  reasoning: string;
+  factors: RiskFactor[];
+}
+
+/** Individual factor contributing to recovery probability. */
+export interface RiskFactor {
+  name: string;
+  score: number; // 0.0 - 1.0
+  weight: number;
+  detail: string;
+}
+
+/** Output of the Strategy Agent. */
+export interface StrategyResult {
+  strategy: RecoveryStrategy;
+  reasoning: string;
+  confidence: number;
+  executionParams: ExecutionParams;
+}
+
+/** Parameters for executing the chosen recovery strategy. */
+export interface ExecutionParams {
+  /** When to execute (null = immediately) */
+  scheduledAt: Date | null;
+  /** Which channel to use for customer contact */
+  channel: "email" | "sms" | "onscreen" | "merchant_dashboard" | null;
+  /** Generated message content for customer nudges */
+  messageContent: string | null;
+  /** Maximum number of retry attempts for this strategy */
+  maxRetries: number;
+  /** Suggested alternative payment method (for ALT_PAYMENT strategy) */
+  alternativeMethod: PaymentMethod | null;
+  /** Current escalation level */
+  escalationLevel: EscalationLevel;
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline Aggregate Types
+// ---------------------------------------------------------------------------
+
+/** Complete result from the full agent pipeline (Diagnosis → Risk → Strategy). */
+export interface PipelineResult {
+  diagnosis: DiagnosisResult;
+  riskAssessment: RiskAssessmentResult;
+  strategy: StrategyResult;
+  processingTimeMs: number;
+}
+
+/** Context object passed through the agent pipeline — enriched at each stage. */
+export interface PipelineContext {
+  event: PaymentFailureEvent;
+  customerHistory: CustomerHistory;
+  bankHealth: BankHealthSignal;
+}
+
+/** Historical data about the customer (used by Risk Assessment Agent). */
+export interface CustomerHistory {
+  totalPurchases: number;
+  lifetimeValue: number;
+  previousFailures: number;
+  daysSinceLastPurchase: number | null;
+}
+
+/** Real-time health signal for a bank (used by Diagnosis Agent). */
+export interface BankHealthSignal {
+  bank: string;
+  currentSuccessRate: number; // 0.0 - 1.0
+  avgSuccessRate: number; // 0.0 - 1.0
+  isOutage: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Analytics Types
+// ---------------------------------------------------------------------------
+
+/** Aggregate metrics for the merchant dashboard. */
+export interface RecoveryMetrics {
+  totalAtRisk: number;
+  totalRecovered: number;
+  recoveryRate: number;
+  activeRecoveries: number;
+  avgTimeToRecoverMs: number;
+  byStrategy: Record<RecoveryStrategy, number>;
+  byFailureCategory: Record<FailureCategory, number>;
+}
+
+/** Time-series data point for charts. */
+export interface TimeSeriesPoint {
+  timestamp: Date;
+  value: number;
+  label: string;
+}
+
+// ---------------------------------------------------------------------------
+// API Types
+// ---------------------------------------------------------------------------
+
+/** Standard API response envelope. */
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T | null;
+  error: string | null;
+  timestamp: string;
+}
+
+/** Webhook payload for payment events. */
+export interface WebhookPayload {
+  event: "payment.failed" | "payment.captured" | "checkout.abandoned" | "subscription.halted";
+  payload: PaymentFailureEvent;
+}
