@@ -24,6 +24,7 @@ import type {
   RiskAssessmentResult,
   StrategyResult,
 } from "@/lib/types";
+import { type Clock, SystemClock } from "@/lib/time/clock";
 
 // ---------------------------------------------------------------------------
 // Alternative method mapping — what to suggest when a method fails
@@ -43,6 +44,12 @@ const ALT_METHOD_MAP: Partial<Record<PaymentMethod, PaymentMethod>> = {
 // ---------------------------------------------------------------------------
 
 export class StrategyAgent {
+  private clock: Clock;
+
+  constructor(clock: Clock = new SystemClock()) {
+    this.clock = clock;
+  }
+
   /**
    * Select the best recovery strategy for a failed payment.
    */
@@ -199,7 +206,7 @@ export class StrategyAgent {
     const bank = event.bank ?? "DEFAULT";
     const window = BANK_RETRY_WINDOWS[bank] ?? BANK_RETRY_WINDOWS["DEFAULT"]!;
 
-    const now = new Date();
+    const now = this.clock.now();
     const retryDate = new Date(now);
 
     // If current hour is in the avoid window or before best window, schedule for next best window
@@ -227,7 +234,7 @@ export class StrategyAgent {
 
   /** Calculate nudge time — 2 hours from now, but respect quiet hours. */
   private calculateNudgeTime(): Date {
-    const nudge = new Date();
+    const nudge = this.clock.now();
     nudge.setHours(nudge.getHours() + 2);
 
     // If nudge would land in quiet hours (9PM-9AM), push to 9AM

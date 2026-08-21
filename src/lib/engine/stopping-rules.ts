@@ -11,6 +11,7 @@
 import type { RecoveryAttempt } from "@prisma/client";
 import { QUIET_HOURS, STOPPING_RULES } from "@/lib/constants";
 import type { PaymentFailureEvent } from "@/lib/types";
+import { type Clock, SystemClock } from "@/lib/time/clock";
 
 export interface StopDecision {
   shouldStop: boolean;
@@ -19,6 +20,12 @@ export interface StopDecision {
 }
 
 export class StoppingRulesEngine {
+  private clock: Clock;
+
+  constructor(clock: Clock = new SystemClock()) {
+    this.clock = clock;
+  }
+
   /**
    * Evaluate all stopping rules for a payment.
    * Returns the first rule that triggers a stop, or clears the attempt.
@@ -68,7 +75,7 @@ export class StoppingRulesEngine {
 
     // Rule 5: Recovery window expired (72 hours from failure)
     const hoursSinceFailure =
-      (Date.now() - event.timestamp.getTime()) / (1000 * 60 * 60);
+      (this.clock.now().getTime() - event.timestamp.getTime()) / (1000 * 60 * 60);
     if (hoursSinceFailure > STOPPING_RULES.MAX_RECOVERY_WINDOW_HOURS) {
       return {
         shouldStop: true,
@@ -98,7 +105,7 @@ export class StoppingRulesEngine {
    * Check if current time is within quiet hours (9PM - 9AM IST).
    */
   private isQuietHours(): boolean {
-    const now = new Date();
+    const now = this.clock.now();
     // Convert to IST (UTC+5:30)
     const istOffset = 5.5 * 60; // minutes
     const utcMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();

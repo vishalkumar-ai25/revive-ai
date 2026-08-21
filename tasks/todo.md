@@ -14,7 +14,7 @@
   - Verify: Run `npm run lint`.
   - Files: `.eslintrc.json`.
 
-- [ ] **Task 1.3: Implement Injectable Clock Interface**
+- [x] **Task 1.3: Implement Injectable Clock Interface**
   - Description: Create `src/lib/time/clock.ts` exporting `Clock`, `SystemClock`, and `VirtualClock` (with `advanceHours()` / `advanceMinutes()`).
   - Acceptance: Clock interface provides virtual time advancement for simulation tests.
   - Verify: Unit test in `tests/clock.test.ts`.

@@ -13,15 +13,18 @@ import { RecoveryPipeline } from "@/lib/agents";
 import { AuditLogger } from "@/lib/audit/logger";
 import { StoppingRulesEngine } from "./stopping-rules";
 import type { CustomerHistory, PaymentFailureEvent } from "@/lib/types";
+import { type Clock, SystemClock } from "@/lib/time/clock";
 
 export class RecoveryEngine {
   private pipeline: RecoveryPipeline;
   private stoppingRules: StoppingRulesEngine;
   private auditLogger: AuditLogger;
+  private clock: Clock;
 
-  constructor() {
+  constructor(clock: Clock = new SystemClock()) {
+    this.clock = clock;
     this.pipeline = new RecoveryPipeline();
-    this.stoppingRules = new StoppingRulesEngine();
+    this.stoppingRules = new StoppingRulesEngine(clock);
     this.auditLogger = new AuditLogger();
   }
 
@@ -159,7 +162,7 @@ export class RecoveryEngine {
         escalationLevel: executionParams.escalationLevel,
         outcome,
         scheduledAt: executionParams.scheduledAt,
-        executedAt: new Date(),
+        executedAt: this.clock.now(),
         channel: executionParams.channel,
         messageContent: executionParams.messageContent,
       },
