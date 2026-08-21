@@ -130,7 +130,7 @@ describe("VirtualClock — quiet hours scenario", () => {
     assert.equal(istHour, 23, "Clock frozen at 17:30 UTC should read 23:00 IST");
   });
 
-  it("frozen at 10 AM IST (04:30 UTC) is within quiet hours", () => {
+  it("frozen at 10 AM IST (04:30 UTC) is outside quiet hours", () => {
     // 04:30 UTC = 10:00 IST — NOT quiet hours
     const tenAmIst = new Date("2025-01-15T04:30:00.000Z");
     const clock = new VirtualClock(tenAmIst);

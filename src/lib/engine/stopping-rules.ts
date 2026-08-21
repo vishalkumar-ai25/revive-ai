@@ -8,8 +8,8 @@
 // Every stop decision is recorded with the rule name for audit purposes.
 // =============================================================================
 
-import type { RecoveryAttempt } from "@prisma/client";
-import { QUIET_HOURS, STOPPING_RULES } from "@/lib/constants";
+import type { RecoveryAttempt, RecoveryStrategy } from "@prisma/client";
+import { CUSTOMER_FACING_STRATEGIES, QUIET_HOURS, STOPPING_RULES } from "@/lib/constants";
 import type { PaymentFailureEvent } from "@/lib/types";
 import { type Clock, SystemClock } from "@/lib/time/clock";
 
@@ -34,6 +34,7 @@ export class StoppingRulesEngine {
     event: PaymentFailureEvent,
     previousAttempts: Pick<RecoveryAttempt, "attemptNumber" | "strategy" | "outcome">[],
     isFraudBlocked: boolean,
+    strategy?: RecoveryStrategy,
   ): StopDecision {
     // Rule 1: NEVER retry fraud-blocked payments
     if (isFraudBlocked) {
@@ -85,7 +86,8 @@ export class StoppingRulesEngine {
     }
 
     // Rule 6: Quiet hours — don't contact customers between 9PM and 9AM IST
-    if (this.isQuietHours()) {
+    // Only applies to customer-facing outreach strategies (e.g. CUSTOMER_NUDGE).
+    if (strategy && CUSTOMER_FACING_STRATEGIES.includes(strategy) && this.isQuietHours()) {
       return {
         shouldStop: true,
         rule: "QUIET_HOURS",

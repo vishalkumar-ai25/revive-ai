@@ -106,7 +106,7 @@ describe("Clock Wiring Integration", () => {
       timestamp: lateNight,
     };
 
-    const decision = engine.evaluate(mockEvent, [], false);
+    const decision = engine.evaluate(mockEvent, [], false, "CUSTOMER_NUDGE");
     assert.equal(decision.shouldStop, true);
     assert.equal(decision.rule, "QUIET_HOURS");
   });

@@ -2,7 +2,7 @@
 
 ## Phase 1: Immediate Bug Fixes & Clock Infrastructure
 
-- [ ] **Task 1.1: Fix Quiet Hours in StoppingRulesEngine**
+- [x] **Task 1.1: Fix Quiet Hours in StoppingRulesEngine**
   - Description: Update `StoppingRulesEngine.evaluate` so quiet hours (9 PM – 9 AM IST) strictly gates customer-facing outreach (`CUSTOMER_NUDGE`, email/SMS) while allowing silent backend `SMART_RETRY` to proceed.
   - Acceptance: `SMART_RETRY` passes during quiet hours; `CUSTOMER_NUDGE` is halted.
   - Verify: Test with virtual time set to 11 PM IST.

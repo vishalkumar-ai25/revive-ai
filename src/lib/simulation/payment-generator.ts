@@ -113,11 +113,8 @@ export class PaymentGenerator {
     const amount = this.generateAmount();
 
     // Generate realistic timestamp within the last 24 hours
-    const timestamp = this.clock.now();
-    timestamp.setHours(
-      timestamp.getHours() - Math.floor(Math.random() * 24),
-    );
-    timestamp.setMinutes(Math.floor(Math.random() * 60));
+    const offsetMs = Math.floor(Math.random() * 24 * 60 * 60 * 1000);
+    const timestamp = new Date(this.clock.now().getTime() - offsetMs);
 
     // Determine if this is a recurring payment
     const isRecurring = errorCode === "SUBSCRIPTION_FAILED" ||

@@ -87,6 +87,16 @@ export const QUIET_HOURS = {
 } as const;
 
 // ---------------------------------------------------------------------------
+// Customer-Facing Strategies — Gated by quiet hours (9PM - 9AM IST)
+// ---------------------------------------------------------------------------
+// ALT_PAYMENT is channel "onscreen" (passive, customer must already be on the
+// page — not gated). ESCALATE_MERCHANT targets the merchant dashboard, not the
+// customer — not gated. SMART_RETRY is silent backend — not gated. Only
+// CUSTOMER_NUDGE proactively contacts the customer (channel "email") and is
+// gated by quiet hours.
+export const CUSTOMER_FACING_STRATEGIES: RecoveryStrategy[] = ["CUSTOMER_NUDGE"];
+
+// ---------------------------------------------------------------------------
 // Bank-Specific Retry Timing — Optimal retry windows per bank
 // ---------------------------------------------------------------------------
 

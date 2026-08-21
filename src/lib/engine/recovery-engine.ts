@@ -121,6 +121,39 @@ export class RecoveryEngine {
 
     const pipelineResult = await this.pipeline.process(event, customerHistory);
 
+    // --- Step 3.5: Post-pipeline stopping rules check (e.g. Quiet Hours for CUSTOMER_NUDGE) ---
+    const postStrategyStopDecision = this.stoppingRules.evaluate(
+      event,
+      previousAttempts,
+      event.errorCode === "FRAUD_DETECTED" || event.errorCode === "SUSPECTED_FRAUD",
+      pipelineResult.strategy.strategy,
+    );
+
+    if (postStrategyStopDecision.shouldStop) {
+      await db.payment.update({
+        where: { id: payment.id },
+        data: { status: "DEAD" },
+      });
+
+      await this.auditLogger.log({
+        paymentExternalId: event.externalId,
+        agentName: "StoppingRulesEngine",
+        action: "RECOVERY_STOPPED",
+        reasoning: postStrategyStopDecision.reason,
+        metadata: {
+          rule: postStrategyStopDecision.rule,
+          intendedStrategy: pipelineResult.strategy.strategy,
+        },
+      });
+
+      return {
+        paymentId: payment.id,
+        strategy: "DO_NOTHING",
+        outcome: "STOPPED_BY_RULE",
+        processingTimeMs: pipelineResult.processingTimeMs,
+      };
+    }
+
     // --- Step 4: Persist failure event ---
     await db.failureEvent.upsert({
       where: { paymentId: payment.id },
