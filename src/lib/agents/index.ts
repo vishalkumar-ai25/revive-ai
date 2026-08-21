@@ -14,7 +14,12 @@ import { DiagnosisAgent } from "./diagnosis-agent";
 import { RiskAssessmentAgent } from "./risk-assessment-agent";
 import { StrategyAgent } from "./strategy-agent";
 import { AuditLogger } from "@/lib/audit/logger";
-import type { CustomerHistory, PaymentFailureEvent, PipelineResult } from "@/lib/types";
+import type {
+  CustomerHistory,
+  DiagnosisResult,
+  PaymentFailureEvent,
+  PipelineResult,
+} from "@/lib/types";
 import { type Clock, SystemClock } from "@/lib/time/clock";
 
 // ---------------------------------------------------------------------------
@@ -43,6 +48,7 @@ export class RecoveryPipeline {
   async process(
     event: PaymentFailureEvent,
     customerHistory: CustomerHistory,
+    paymentId?: string,
   ): Promise<PipelineResult> {
     const startTime = performance.now();
 
@@ -50,6 +56,7 @@ export class RecoveryPipeline {
     const diagnosis = await this.diagnosisAgent.diagnose(event);
 
     await this.auditLogger.log({
+      paymentId,
       paymentExternalId: event.externalId,
       agentName: "DiagnosisAgent",
       action: "DIAGNOSIS_COMPLETE",
@@ -65,6 +72,7 @@ export class RecoveryPipeline {
     const riskAssessment = this.riskAgent.assess(event, diagnosis, customerHistory);
 
     await this.auditLogger.log({
+      paymentId,
       paymentExternalId: event.externalId,
       agentName: "RiskAssessmentAgent",
       action: "RISK_ASSESSED",
@@ -80,6 +88,64 @@ export class RecoveryPipeline {
     const strategy = this.strategyAgent.select(event, diagnosis, riskAssessment);
 
     await this.auditLogger.log({
+      paymentId,
+      paymentExternalId: event.externalId,
+      agentName: "StrategyAgent",
+      action: "STRATEGY_SELECTED",
+      reasoning: strategy.reasoning,
+      metadata: {
+        strategy: strategy.strategy,
+        confidence: strategy.confidence,
+        executionParams: strategy.executionParams,
+      },
+    });
+
+    const processingTimeMs = Math.round(performance.now() - startTime);
+
+    return {
+      diagnosis,
+      riskAssessment,
+      strategy,
+      processingTimeMs,
+    };
+  }
+
+  /**
+   * Run risk assessment and strategy selection for a retry attempt
+   * using a pre-existing diagnosis (e.g. reconstructed from FailureEvent).
+   *
+   * Skips DiagnosisAgent (no Gemini LLM call) and emits NO DIAGNOSIS_COMPLETE
+   * audit entry, while audit-logging RISK_ASSESSED and STRATEGY_SELECTED.
+   */
+  async processRetry(
+    event: PaymentFailureEvent,
+    diagnosis: DiagnosisResult,
+    customerHistory: CustomerHistory,
+    paymentId?: string,
+  ): Promise<PipelineResult> {
+    const startTime = performance.now();
+
+    // --- Stage 2: Risk Assessment ---
+    const riskAssessment = this.riskAgent.assess(event, diagnosis, customerHistory);
+
+    await this.auditLogger.log({
+      paymentId,
+      paymentExternalId: event.externalId,
+      agentName: "RiskAssessmentAgent",
+      action: "RISK_ASSESSED",
+      reasoning: riskAssessment.reasoning,
+      metadata: {
+        recoveryProbability: riskAssessment.recoveryProbability,
+        shouldAttemptRecovery: riskAssessment.shouldAttemptRecovery,
+        factors: riskAssessment.factors,
+      },
+    });
+
+    // --- Stage 3: Strategy Selection ---
+    const strategy = this.strategyAgent.select(event, diagnosis, riskAssessment);
+
+    await this.auditLogger.log({
+      paymentId,
       paymentExternalId: event.externalId,
       agentName: "StrategyAgent",
       action: "STRATEGY_SELECTED",

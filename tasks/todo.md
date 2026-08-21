@@ -42,7 +42,7 @@
   - Verify: `npm test && npm run typecheck`.
   - Files: `src/lib/audit/logger.ts`, `src/lib/engine/recovery-engine.ts`.
 
-- [ ] **Task 2.3: Split `processFailure()` → `intake()` + `tick()` (highest-risk task)**
+- [x] **Task 2.3: Split `processFailure()` → `intake()` + `tick()` (highest-risk task)**
   - Description: Full engine refactor per spec §12.3. Scope: (a) `intake()` creates first attempt as `outcome: PENDING`, `executedAt: null`; (b) `tick(asOf)` batch-fetches due attempts in one query (`scheduledAt IS NULL OR scheduledAt <= asOf`), re-evaluates stopping rules, simulates outcome, schedules next attempt via `pipeline.processRetry()` on failure; (c) `processFailure()` becomes `intake()` + `tick(clock.now())` shim; (d) fix Step 6 `"FAILED"` status regression — failed attempts leave Payment at `RECOVERY_IN_PROGRESS`; (e) add `processRetry()` to `RecoveryPipeline` (skips diagnosis, no `DIAGNOSIS_COMPLETE` audit entry); (f) add outcome-filter to Rules 3 and 4 in `stopping-rules.ts`; (g) 5 new PENDING/STOPPED_BY_RULE exclusion tests.
   - Acceptance: All 33+ tests pass; typecheck clean; full diff reviewed before merge.
   - Verify: `npm test && npm run typecheck` — full diff required.

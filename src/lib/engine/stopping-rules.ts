@@ -55,7 +55,12 @@ export class StoppingRulesEngine {
     }
 
     // Rule 3: Maximum retry attempts exceeded
-    const retryAttempts = previousAttempts.filter((a) => a.strategy === "SMART_RETRY");
+    // Only count EXECUTED attempts (FAILED or SUCCESS) — not PENDING or STOPPED_BY_RULE.
+    const retryAttempts = previousAttempts.filter(
+      (a) =>
+        a.strategy === "SMART_RETRY" &&
+        (a.outcome === "FAILED" || a.outcome === "SUCCESS"),
+    );
     if (retryAttempts.length >= STOPPING_RULES.MAX_RETRY_ATTEMPTS) {
       return {
         shouldStop: true,
@@ -65,7 +70,12 @@ export class StoppingRulesEngine {
     }
 
     // Rule 4: Maximum nudge messages exceeded
-    const nudgeAttempts = previousAttempts.filter((a) => a.strategy === "CUSTOMER_NUDGE");
+    // Same reasoning — count delivered nudges only, not scheduled-but-unexecuted ones.
+    const nudgeAttempts = previousAttempts.filter(
+      (a) =>
+        a.strategy === "CUSTOMER_NUDGE" &&
+        (a.outcome === "FAILED" || a.outcome === "SUCCESS"),
+    );
     if (nudgeAttempts.length >= STOPPING_RULES.MAX_NUDGE_MESSAGES) {
       return {
         shouldStop: true,

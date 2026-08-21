@@ -179,3 +179,96 @@ describe("StoppingRulesEngine — Core Rules (1 - 5)", () => {
     assert.equal(decision.rule, "RECOVERY_WINDOW_EXPIRED");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Outcome Filtering Tests (Rules 3 & 4 — Task 2.3)
+// ---------------------------------------------------------------------------
+
+describe("StoppingRulesEngine — Outcome Filtering for Rules 3 & 4", () => {
+  const baseTime = new Date("2025-01-15T05:00:00.000Z"); // 10:30 AM IST
+
+  it("4x SMART_RETRY PENDING → Rule 3 does NOT fire (0 executed retries)", () => {
+    const clock = new VirtualClock(baseTime);
+    const engine = new StoppingRulesEngine(clock);
+    const event = createMockEvent({ timestamp: baseTime });
+
+    const previousAttempts = [
+      { attemptNumber: 1, strategy: "SMART_RETRY" as const, outcome: "PENDING" as const },
+      { attemptNumber: 2, strategy: "SMART_RETRY" as const, outcome: "PENDING" as const },
+      { attemptNumber: 3, strategy: "SMART_RETRY" as const, outcome: "PENDING" as const },
+      { attemptNumber: 4, strategy: "SMART_RETRY" as const, outcome: "PENDING" as const },
+    ];
+
+    const decision = engine.evaluate(event, previousAttempts, false);
+    assert.equal(decision.shouldStop, false);
+    assert.equal(decision.rule, null);
+  });
+
+  it("4x SMART_RETRY FAILED + 1x PENDING → Rule 3 DOES fire (4 executed >= MAX_RETRY_ATTEMPTS)", () => {
+    const clock = new VirtualClock(baseTime);
+    const engine = new StoppingRulesEngine(clock);
+    const event = createMockEvent({ timestamp: baseTime });
+
+    const previousAttempts = [
+      { attemptNumber: 1, strategy: "SMART_RETRY" as const, outcome: "FAILED" as const },
+      { attemptNumber: 2, strategy: "SMART_RETRY" as const, outcome: "FAILED" as const },
+      { attemptNumber: 3, strategy: "SMART_RETRY" as const, outcome: "FAILED" as const },
+      { attemptNumber: 4, strategy: "SMART_RETRY" as const, outcome: "FAILED" as const },
+      { attemptNumber: 5, strategy: "SMART_RETRY" as const, outcome: "PENDING" as const },
+    ];
+
+    const decision = engine.evaluate(event, previousAttempts, false);
+    assert.equal(decision.shouldStop, true);
+    assert.equal(decision.rule, "MAX_RETRIES_EXCEEDED");
+  });
+
+  it("3x CUSTOMER_NUDGE FAILED + 1x PENDING → Rule 4 DOES fire (3 executed >= MAX_NUDGE_MESSAGES)", () => {
+    const clock = new VirtualClock(baseTime);
+    const engine = new StoppingRulesEngine(clock);
+    const event = createMockEvent({ timestamp: baseTime });
+
+    const previousAttempts = [
+      { attemptNumber: 1, strategy: "CUSTOMER_NUDGE" as const, outcome: "FAILED" as const },
+      { attemptNumber: 2, strategy: "CUSTOMER_NUDGE" as const, outcome: "FAILED" as const },
+      { attemptNumber: 3, strategy: "CUSTOMER_NUDGE" as const, outcome: "FAILED" as const },
+      { attemptNumber: 4, strategy: "CUSTOMER_NUDGE" as const, outcome: "PENDING" as const },
+    ];
+
+    const decision = engine.evaluate(event, previousAttempts, false);
+    assert.equal(decision.shouldStop, true);
+    assert.equal(decision.rule, "MAX_NUDGES_EXCEEDED");
+  });
+
+  it("2x CUSTOMER_NUDGE FAILED + 1x PENDING → Rule 4 does NOT fire", () => {
+    const clock = new VirtualClock(baseTime);
+    const engine = new StoppingRulesEngine(clock);
+    const event = createMockEvent({ timestamp: baseTime });
+
+    const previousAttempts = [
+      { attemptNumber: 1, strategy: "CUSTOMER_NUDGE" as const, outcome: "FAILED" as const },
+      { attemptNumber: 2, strategy: "CUSTOMER_NUDGE" as const, outcome: "FAILED" as const },
+      { attemptNumber: 3, strategy: "CUSTOMER_NUDGE" as const, outcome: "PENDING" as const },
+    ];
+
+    const decision = engine.evaluate(event, previousAttempts, false);
+    assert.equal(decision.shouldStop, false);
+    assert.equal(decision.rule, null);
+  });
+
+  it("1x SMART_RETRY STOPPED_BY_RULE + 3x SMART_RETRY FAILED → Rule 3 does NOT fire", () => {
+    const clock = new VirtualClock(baseTime);
+    const engine = new StoppingRulesEngine(clock);
+    const event = createMockEvent({ timestamp: baseTime });
+
+    const previousAttempts = [
+      { attemptNumber: 1, strategy: "SMART_RETRY" as const, outcome: "STOPPED_BY_RULE" as const },
+      { attemptNumber: 2, strategy: "SMART_RETRY" as const, outcome: "FAILED" as const },
+      { attemptNumber: 3, strategy: "SMART_RETRY" as const, outcome: "FAILED" as const },
+      { attemptNumber: 4, strategy: "SMART_RETRY" as const, outcome: "FAILED" as const },
+    ];
+
+    const decision = engine.evaluate(event, previousAttempts, false);
+    assert.equal(decision.shouldStop, false);
+    assert.equal(decision.rule, null);
+  });
+});
