@@ -1,14 +1,26 @@
 "use client";
 
 import React from "react";
-import { MetricCards } from "@/components/MetricCards";
-import { LiveFeed } from "@/components/LiveFeed";
+import { MetricCards, type SummaryData } from "@/components/MetricCards";
+import { LiveFeed, type PaymentItem } from "@/components/LiveFeed";
 import { SimulationControls } from "@/components/SimulationControls";
 import { AuditModal } from "@/components/AuditModal";
 import { ShieldCheck, RefreshCw, Zap, Landmark } from "lucide-react";
 
+interface CategoryStat {
+  category: string;
+  count: number;
+}
+
+interface DashboardData {
+  summary?: SummaryData;
+  categoryStats?: CategoryStat[];
+  recentPayments?: PaymentItem[];
+  escalationQueue?: PaymentItem[];
+}
+
 export default function Dashboard() {
-  const [data, setData] = React.useState<any>(null);
+  const [data, setData] = React.useState<DashboardData | null>(null);
   const [selectedPaymentId, setSelectedPaymentId] = React.useState<string | null>(null);
 
   const fetchData = React.useCallback(async () => {
@@ -81,7 +93,7 @@ export default function Dashboard() {
                 Categorized by DiagnosisAgent across Indian PSPs and banks
               </p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {data.categoryStats.map((cat: any) => (
+                {data.categoryStats.map((cat: CategoryStat) => (
                   <div
                     key={cat.category}
                     className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3"

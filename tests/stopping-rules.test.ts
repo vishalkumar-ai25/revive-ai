@@ -167,16 +167,49 @@ describe("StoppingRulesEngine — Core Rules (1 - 5)", () => {
     assert.equal(decision.rule, "MAX_NUDGES_EXCEEDED");
   });
 
-  it("Rule 5: hoursSinceFailure > 72 → shouldStop === true, rule === 'RECOVERY_WINDOW_EXPIRED'", () => {
+  it("Rule 5: standard payment hoursSinceFailure > 72 → shouldStop === true, rule === 'RECOVERY_WINDOW_EXPIRED'", () => {
     const failureTime = new Date("2025-01-15T00:00:00.000Z");
     const currentTime = new Date("2025-01-18T01:00:00.000Z"); // 73 hours later
     const clock = new VirtualClock(currentTime);
     const engine = new StoppingRulesEngine(clock);
-    const event = createMockEvent({ timestamp: failureTime });
+    const event = createMockEvent({ timestamp: failureTime, isRecurring: false, mandateId: null });
 
     const decision = engine.evaluate(event, [], false);
     assert.equal(decision.shouldStop, true);
     assert.equal(decision.rule, "RECOVERY_WINDOW_EXPIRED");
+  });
+
+  it("Rule 5: mandate payment at 96h (within 168h window) → shouldStop === false", () => {
+    const failureTime = new Date("2025-01-15T00:00:00.000Z");
+    const currentTime = new Date("2025-01-19T00:00:00.000Z"); // 96 hours later
+    const clock = new VirtualClock(currentTime);
+    const engine = new StoppingRulesEngine(clock);
+    const event = createMockEvent({
+      timestamp: failureTime,
+      isRecurring: true,
+      mandateId: "mandate_1234",
+    });
+
+    const decision = engine.evaluate(event, [], false);
+    assert.equal(decision.shouldStop, false);
+    assert.equal(decision.rule, null);
+  });
+
+  it("Rule 5: mandate payment at 170h (> 168h window) → shouldStop === true, rule === 'RECOVERY_WINDOW_EXPIRED'", () => {
+    const failureTime = new Date("2025-01-15T00:00:00.000Z");
+    const currentTime = new Date("2025-01-22T02:00:00.000Z"); // 170 hours later
+    const clock = new VirtualClock(currentTime);
+    const engine = new StoppingRulesEngine(clock);
+    const event = createMockEvent({
+      timestamp: failureTime,
+      isRecurring: true,
+      mandateId: "mandate_1234",
+    });
+
+    const decision = engine.evaluate(event, [], false);
+    assert.equal(decision.shouldStop, true);
+    assert.equal(decision.rule, "RECOVERY_WINDOW_EXPIRED");
+    assert.ok(decision.reason.includes("168-hour"));
   });
 });
 

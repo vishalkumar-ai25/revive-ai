@@ -203,6 +203,30 @@ export const SIMULATION = {
 } as const;
 
 // ---------------------------------------------------------------------------
+// Mandate Retry Policy — ReviveAI's self-imposed retry limits for recurring
+// e-mandate payments, informed by common industry practice.
+// Semantically distinct from STOPPING_RULES (which govern one-time payments).
+// ---------------------------------------------------------------------------
+
+export const MANDATE_RULES = {
+  /** Maximum auto-debit retry attempts per recurring debit cycle */
+  MAX_ATTEMPTS: 4,
+
+  /** Total recovery window (hours) for mandate retries — 7 days */
+  WINDOW_HOURS: 168,
+
+  /** Spacing between retry attempts (hours from original failure) */
+  RETRY_SPACING_HOURS: [0, 48, 96, 144] as readonly number[],
+
+  /** Optimal bank debit hour (IST) — 10:15 AM IST for batch processing */
+  OPTIMAL_DEBIT_HOUR_IST: 10,
+  OPTIMAL_DEBIT_MINUTE_IST: 15,
+
+  /** Pre-debit notification must be sent this many hours before each attempt */
+  PRE_DEBIT_NOTIFICATION_HOURS: 24,
+} as const;
+
+// ---------------------------------------------------------------------------
 // LLM Configuration
 // ---------------------------------------------------------------------------
 

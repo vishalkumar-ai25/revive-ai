@@ -1,7 +1,7 @@
 import React from "react";
 import { TrendingUp, AlertTriangle, ShieldCheck, Zap } from "lucide-react";
 
-interface SummaryData {
+export interface SummaryData {
   totalPayments: number;
   failedPayments: number;
   recoveredPayments: number;

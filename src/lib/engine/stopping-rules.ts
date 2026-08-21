@@ -9,7 +9,7 @@
 // =============================================================================
 
 import type { RecoveryAttempt, RecoveryStrategy } from "@prisma/client";
-import { CUSTOMER_FACING_STRATEGIES, QUIET_HOURS, STOPPING_RULES } from "@/lib/constants";
+import { CUSTOMER_FACING_STRATEGIES, MANDATE_RULES, QUIET_HOURS, STOPPING_RULES } from "@/lib/constants";
 import type { PaymentFailureEvent } from "@/lib/types";
 import { type Clock, SystemClock } from "@/lib/time/clock";
 
@@ -84,14 +84,20 @@ export class StoppingRulesEngine {
       };
     }
 
-    // Rule 5: Recovery window expired (72 hours from failure)
+    // Rule 5: Recovery window expired
+    // Standard payments: 72 hours. Recurring e-mandates: 168 hours (7 days, per ReviveAI mandate policy).
+    const isMandate = Boolean(event.isRecurring && event.mandateId);
+    const maxWindowHours = isMandate
+      ? MANDATE_RULES.WINDOW_HOURS
+      : STOPPING_RULES.MAX_RECOVERY_WINDOW_HOURS;
+
     const hoursSinceFailure =
       (this.clock.now().getTime() - event.timestamp.getTime()) / (1000 * 60 * 60);
-    if (hoursSinceFailure > STOPPING_RULES.MAX_RECOVERY_WINDOW_HOURS) {
+    if (hoursSinceFailure > maxWindowHours) {
       return {
         shouldStop: true,
         rule: "RECOVERY_WINDOW_EXPIRED",
-        reason: `${STOPPING_RULES.MAX_RECOVERY_WINDOW_HOURS}-hour recovery window has expired.`,
+        reason: `${maxWindowHours}-hour recovery window has expired.`,
       };
     }
 

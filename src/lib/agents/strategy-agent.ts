@@ -16,7 +16,11 @@
 // =============================================================================
 
 import type { EscalationLevel, PaymentMethod, RecoveryStrategy } from "@prisma/client";
-import { BANK_RETRY_WINDOWS, STRATEGY_WEIGHTS } from "@/lib/constants";
+import {
+  BANK_RETRY_WINDOWS,
+  MANDATE_RULES,
+  STRATEGY_WEIGHTS,
+} from "@/lib/constants";
 import {
   channelForLevel,
   currentEscalationLevel,
@@ -29,6 +33,7 @@ import type {
   StrategyResult,
 } from "@/lib/types";
 import { type Clock, SystemClock } from "@/lib/time/clock";
+import { MandateRetrySequencer } from "./mandate-sequencer";
 
 // ---------------------------------------------------------------------------
 // Alternative method mapping — what to suggest when a method fails
@@ -49,9 +54,11 @@ const ALT_METHOD_MAP: Partial<Record<PaymentMethod, PaymentMethod>> = {
 
 export class StrategyAgent {
   private clock: Clock;
+  private mandateSequencer: MandateRetrySequencer;
 
   constructor(clock: Clock = new SystemClock()) {
     this.clock = clock;
+    this.mandateSequencer = new MandateRetrySequencer(clock);
   }
 
   /**
@@ -79,6 +86,103 @@ export class StrategyAgent {
         confidence: 0.95,
         executionParams: this.buildParams("DO_NOTHING", event, diagnosis, hours),
       };
+    }
+
+    // --- Recurring Mandate Route ---
+    // If recurring payment with mandateId or mandate-expired error, route to MandateRetrySequencer
+    if (
+      event.isRecurring &&
+      (Boolean(event.mandateId) || diagnosis.category === "MANDATE_EXPIRED")
+    ) {
+      // Determine attempts so far from hours if not provided
+      let attemptsCount = 0;
+      if (hours >= 144) attemptsCount = 3;
+      else if (hours >= 96) attemptsCount = 2;
+      else if (hours >= 48) attemptsCount = 1;
+      else attemptsCount = 0;
+
+      const mandateResult = this.mandateSequencer.evaluate(
+        event,
+        diagnosis,
+        attemptsCount,
+      );
+
+      if (mandateResult.isExpiredMandate) {
+        return {
+          strategy: "ALT_PAYMENT",
+          reasoning: mandateResult.reasoning,
+          confidence: 0.85,
+          executionParams: {
+            scheduledAt: null,
+            channel: "email",
+            messageContent:
+              "Your recurring payment mandate has expired or was revoked. Please re-authorize your payment method to continue your subscription.",
+            maxRetries: 1,
+            alternativeMethod: ALT_METHOD_MAP[event.method] ?? "UPI",
+            escalationLevel: currentEscalationLevel(hours),
+            mandateSchedule: null,
+          },
+        };
+      }
+
+      if (mandateResult.shouldRetry && mandateResult.schedule) {
+        const schedule = mandateResult.schedule;
+        const isCustomerFacing =
+          schedule.strategy === "ALT_PAYMENT" ||
+          schedule.strategy === "CUSTOMER_NUDGE";
+
+        return {
+          strategy: schedule.strategy,
+          reasoning: mandateResult.reasoning,
+          confidence: 0.9,
+          executionParams: {
+            scheduledAt: schedule.scheduledAt,
+            channel: isCustomerFacing ? "email" : "onscreen",
+            messageContent:
+              schedule.strategy === "ALT_PAYMENT"
+                ? `Mandate retry fallback: Please complete your subscription payment using ${schedule.rail === "ON_DEMAND_LINK" ? "a direct payment link" : schedule.rail}.`
+                : null,
+            maxRetries: MANDATE_RULES.MAX_ATTEMPTS,
+            alternativeMethod:
+              schedule.rail === "ON_DEMAND_LINK"
+                ? (ALT_METHOD_MAP[event.method] ?? "UPI")
+                : null,
+            escalationLevel: currentEscalationLevel(hours),
+            mandateSchedule: schedule,
+          },
+        };
+      }
+
+      if (!mandateResult.shouldRetry) {
+        const strategy: RecoveryStrategy =
+          mandateResult.terminationReason === "FRAUD_DETECTED"
+            ? "DO_NOTHING"
+            : "ESCALATE_MERCHANT";
+
+        return {
+          strategy,
+          reasoning: mandateResult.reasoning,
+          confidence: 0.95,
+          executionParams: {
+            scheduledAt: null,
+            channel:
+              strategy === "ESCALATE_MERCHANT"
+                ? "merchant_dashboard"
+                : null,
+            messageContent:
+              strategy === "ESCALATE_MERCHANT"
+                ? `Mandate recovery halted (${mandateResult.terminationReason ?? "max attempts exceeded"}). Manual merchant intervention required.`
+                : null,
+            maxRetries: 0,
+            alternativeMethod: null,
+            escalationLevel:
+              strategy === "ESCALATE_MERCHANT"
+                ? ("LEVEL_4_MERCHANT_ALERT" as EscalationLevel)
+                : ("LEVEL_5_DEAD" as EscalationLevel),
+            mandateSchedule: null,
+          },
+        };
+      }
     }
 
     // Score each strategy

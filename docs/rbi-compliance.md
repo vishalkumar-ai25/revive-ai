@@ -10,21 +10,42 @@ ReviveAI is built specifically for Indian merchant and payment gateway ecosystem
 
 ---
 
-## 2. RBI Mandate & Auto-Debit Compliance
+## 2. E-Mandate & Auto-Debit Retry Policy
 
-### 2.1 E-Mandate Regulations (Circular RBI/2019-20/55 & updates)
-- **Pre-Debit Notification (AFA Requirement):** Any auto-debit on an e-mandate requires pre-debit notifications to the customer. When a mandate fails, recovery attempts must comply with pre-authorized debit limits.
-- **Maximum Retries:** A single recurring debit cycle must not exceed **4 retry attempts**. Exceeding this causes excessive bank processing fees, account debit locks, and regulatory non-compliance.
-- **Mandate Expiry & Revocation:** If a mandate is expired or revoked by the user, the agent **must not** attempt auto-debit retries on the expired token. Instead, the agent initiates an **AFA re-authorization workflow** sending a secure re-registration link.
-- **Rail Switching Rules:**
-  - If a **UPI Autopay** debit fails due to PSP timeout or bank downtime $\rightarrow$ Fallback to **e-NACH** or **Card Auto-Debit** if alternative mandate registered, or send on-demand payment link.
+### 2.1 Regulatory Context & Disclaimer
 
-### 2.2 Smart Mandate Retry Sequencing Matrix
+> **Note:** India's e-mandate framework has been consolidated under RBI's
+> "Digital Payments – E-mandate Framework, 2026" (and prior circulars it
+> supersedes). The exact current circular text has not been independently
+> verified against for this implementation. The retry limits, timing, and
+> procedures described below reflect **ReviveAI's own retry policy**, informed
+> by common e-mandate industry practice and publicly available summaries of
+> the regulatory framework. Merchants deploying ReviveAI in production should
+> independently verify compliance with the current RBI circular text.
+
+### 2.2 Key Principles (Industry Practice)
+- **Pre-Debit Notification:** Every auto-debit attempt (including retries) should be preceded by a notification to the customer at least **24 hours** before the scheduled debit. This is consistently described across public summaries of the e-mandate framework and is represented in ReviveAI's `MandateRetrySchedule.preDebitNotificationSentAt` field.
+- **Mandate Expiry & Revocation:** If a mandate is expired or revoked by the user, the agent **must not** attempt auto-debit retries on the expired token. Instead, the agent initiates a **re-authorization workflow** sending a secure re-registration link.
+- **Rail Switching:** If a UPI Autopay debit fails due to PSP timeout or bank downtime, fallback to e-NACH or Card Auto-Debit if an alternative mandate is registered, or send an on-demand payment link.
+
+### 2.3 ReviveAI Mandate Retry Policy (Self-Imposed Limits)
+
+The following limits are **ReviveAI's own operational policy**, not direct regulatory quotations:
+
+- **Maximum 4 retry attempts** per recurring debit cycle. Exceeding this risks excessive bank processing fees, customer friction, and account-level flags.
+- **168-hour (7-day) recovery window** from the original failed debit. After this window, the mandate is marked `UNRECOVERABLE` and escalated to the merchant.
+- **Fraud-flagged mandates are never retried** — zero tolerance, same as one-time payments.
+
+### 2.4 Smart Mandate Retry Sequencing Matrix
 ```
 Attempt 1 (T+0):       Original scheduled debit date (e.g., 5th of month) → Failed
+                        Pre-debit notification: T-24h (before original debit)
 Attempt 2 (T+48h):     +2 Days (aligns with salary clearing / bank processing window)
-Attempt 3 (T+96h):     +4 Days at optimal bank hour (e.g., 10:15 AM for SBI/HDFC)
+                        Pre-debit notification: T+24h
+Attempt 3 (T+96h):     +4 Days at optimal bank hour (e.g., 10:15 AM IST for SBI/HDFC)
+                        Pre-debit notification: T+72h
 Attempt 4 (T+144h):    +6 Days switching to alternative rail / direct one-click link
+                        Pre-debit notification: T+120h
 
 TERMINATION (T+168h):  Hard stop. Mandate marked UNRECOVERABLE / Escalate to merchant.
 ```

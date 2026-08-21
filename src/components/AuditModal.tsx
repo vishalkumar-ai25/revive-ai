@@ -6,7 +6,7 @@ interface AuditLogEntry {
   agentName: string;
   action: string;
   reasoning: string;
-  metadata: any;
+  metadata: Record<string, unknown> | null;
   createdAt: string;
 }
 

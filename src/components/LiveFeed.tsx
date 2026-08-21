@@ -1,7 +1,7 @@
 import React from "react";
 import { CheckCircle2, XCircle, Clock, AlertOctagon, Eye } from "lucide-react";
 
-interface PaymentItem {
+export interface PaymentItem {
   id: string;
   externalId: string;
   amount: number;

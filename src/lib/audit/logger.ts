@@ -16,7 +16,7 @@ export interface AuditEntry {
   agentName: string;
   action: string;
   reasoning: string;
-  metadata?: any;
+  metadata?: Prisma.InputJsonValue | Record<string, unknown>;
 }
 
 export class AuditLogger {
