@@ -54,7 +54,7 @@
   - Verify: `npm test && npm run typecheck`.
   - Files: `src/lib/agents/strategy-agent.ts`.
 
-- [ ] **Task 2.5: Quiet-hours defer-not-kill (gated on Decision 1)**
+- [x] **Task 2.5: Quiet-hours defer-not-kill (gated on Decision 1)**
   - Description: Change quiet-hours trip behavior from `Payment.status = "DEAD"` to rescheduling `scheduledAt` to next 9:00 AM IST, leaving `outcome: PENDING`, not touching Payment.status. Changes existing `tests/stopping-rules.test.ts` assertions for quiet-hours case. Do not start until Decision 1 is explicitly confirmed.
   - Acceptance: Quiet-hours trip on `CUSTOMER_NUDGE` produces a rescheduled `PENDING` attempt, not `DEAD` payment. All existing tests pass with updated assertions.
   - Verify: `npm test`.

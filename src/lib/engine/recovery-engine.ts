@@ -163,6 +163,71 @@ export class RecoveryEngine {
     );
 
     if (postStrategyStopDecision.shouldStop) {
+      if (postStrategyStopDecision.rule === "QUIET_HOURS") {
+        // Quiet hours deferral: keep payment alive, reschedule initial outreach to 9:00 AM IST
+        const next9Am = this.getNext9AmIst(this.clock.now());
+
+        // Step 4: Persist failure event
+        await db.failureEvent.upsert({
+          where: { paymentId: payment.id },
+          create: {
+            paymentId: payment.id,
+            category: pipelineResult.diagnosis.category,
+            rootCause: pipelineResult.diagnosis.rootCause,
+            diagnosisConfidence: pipelineResult.diagnosis.confidence,
+            isRecoverable: pipelineResult.diagnosis.isRecoverable,
+            recoveryProbability:
+              pipelineResult.riskAssessment.recoveryProbability,
+          },
+          update: {
+            category: pipelineResult.diagnosis.category,
+            rootCause: pipelineResult.diagnosis.rootCause,
+            diagnosisConfidence: pipelineResult.diagnosis.confidence,
+            isRecoverable: pipelineResult.diagnosis.isRecoverable,
+            recoveryProbability:
+              pipelineResult.riskAssessment.recoveryProbability,
+          },
+        });
+
+        // Step 5: Create initial recovery attempt as PENDING at 9:00 AM IST
+        const attemptNumber = previousAttempts.length + 1;
+        const { strategy, executionParams } = pipelineResult.strategy;
+
+        await db.recoveryAttempt.create({
+          data: {
+            paymentId: payment.id,
+            attemptNumber,
+            strategy,
+            escalationLevel: executionParams.escalationLevel,
+            outcome: "PENDING",
+            scheduledAt: next9Am,
+            executedAt: null,
+            channel: executionParams.channel,
+            messageContent: executionParams.messageContent,
+          },
+        });
+
+        await this.auditLogger.log({
+          paymentId: payment.id,
+          paymentExternalId: event.externalId,
+          agentName: "StoppingRulesEngine",
+          action: "OUTREACH_DEFERRED",
+          reasoning: `Quiet hours active (${postStrategyStopDecision.reason}). Customer outreach deferred to 9:00 AM IST.`,
+          metadata: {
+            rule: "QUIET_HOURS",
+            deferredUntil: next9Am,
+            intendedStrategy: pipelineResult.strategy.strategy,
+          },
+        });
+
+        return {
+          paymentId: payment.id,
+          strategy: pipelineResult.strategy.strategy,
+          outcome: "PENDING",
+          processingTimeMs: pipelineResult.processingTimeMs,
+        };
+      }
+
       await db.payment.update({
         where: { id: payment.id },
         data: { status: "DEAD" },
@@ -317,6 +382,39 @@ export class RecoveryEngine {
       );
 
       if (stopDecision.shouldStop) {
+        if (stopDecision.rule === "QUIET_HOURS") {
+          // Defer attempt to 9:00 AM IST
+          const next9Am = this.getNext9AmIst(asOf);
+
+          await db.recoveryAttempt.update({
+            where: { id: dueAttempt.id },
+            data: {
+              scheduledAt: next9Am,
+            },
+          });
+
+          await this.auditLogger.log({
+            paymentId: payment.id,
+            paymentExternalId: payment.externalId,
+            agentName: "StoppingRulesEngine",
+            action: "OUTREACH_DEFERRED",
+            reasoning: `Quiet hours active (${stopDecision.reason}). Rescheduled outreach to 9:00 AM IST.`,
+            metadata: {
+              rule: "QUIET_HOURS",
+              deferredUntil: next9Am,
+              strategy: dueAttempt.strategy,
+            },
+          });
+
+          results.push({
+            attemptId: dueAttempt.id,
+            paymentId: payment.id,
+            strategy: dueAttempt.strategy,
+            outcome: "DEFERRED",
+          });
+          continue;
+        }
+
         await db.recoveryAttempt.update({
           where: { id: dueAttempt.id },
           data: {
@@ -589,5 +687,21 @@ export class RecoveryEngine {
         lifetimeValue: Math.floor(Math.random() * 50000),
       },
     });
+  }
+
+  /**
+   * Calculate the next 9:00 AM IST timestamp (returned as UTC Date) from a given date.
+   */
+  private getNext9AmIst(now: Date): Date {
+    const istOffsetMinutes = 5.5 * 60; // 330 minutes
+    const istTime = new Date(now.getTime() + istOffsetMinutes * 60 * 1000);
+
+    const istYear = istTime.getUTCFullYear();
+    const istMonth = istTime.getUTCMonth();
+    const istDate = istTime.getUTCDate();
+    const istHour = istTime.getUTCHours();
+
+    const targetIstDate = istHour < 9 ? istDate : istDate + 1;
+    return new Date(Date.UTC(istYear, istMonth, targetIstDate, 3, 30, 0, 0));
   }
 }
