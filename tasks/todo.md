@@ -28,27 +28,46 @@
 
 ---
 
-## Phase 2: Dynamic Escalation Ladder & Multi-Attempt State Machine
+## Phase 2: Dynamic Escalation Ladder & Multi-Attempt Lifecycle
 
-- [ ] **Task 2.1: Implement Escalation Ladder Engine**
-  - Description: Create `src/lib/engine/escalation-ladder.ts` defining Level 1 $\rightarrow$ Level 2 $\rightarrow$ Level 3 $\rightarrow$ Level 4 $\rightarrow$ Level 5 progression with delay thresholds from `ESCALATION_CONFIG`.
-  - Acceptance: Correct level returned based on hours elapsed and prior attempt count.
-  - Verify: Run escalation ladder unit tests.
-  - Files: `src/lib/engine/escalation-ladder.ts`, `src/lib/constants.ts`.
+- [ ] **Task 2.1: `currentEscalationLevel()` pure function + tests**
+  - Description: Add `currentEscalationLevel(hoursSinceFailure: number): EscalationLevel` in a new `src/lib/engine/escalation-ladder.ts`. Returns the highest `ESCALATION_CONFIG.delayHours` threshold crossed. Pure function — no side effects, no behavior change yet (unused until Task 2.4).
+  - Acceptance: All escalation-ladder tests pass; function is not yet wired into any call site.
+  - Verify: `npm test` (new `tests/escalation-ladder.test.ts`).
+  - Files: `src/lib/engine/escalation-ladder.ts`, `tests/escalation-ladder.test.ts`.
 
-- [ ] **Task 2.2: Multi-Attempt Lifecycle in RecoveryEngine**
-  - Description: Update `RecoveryEngine.processFailure` to support multi-attempt lifecycle execution where an unrecovered payment can advance through subsequent attempts using the injectable clock.
-  - Acceptance: Subsequent attempts evaluate `previousAttempts`, increment attempt numbers, and respect `MAX_RETRY_ATTEMPTS` / `MAX_NUDGE_MESSAGES`.
-  - Verify: Multi-attempt lifecycle simulation test.
-  - Files: `src/lib/engine/recovery-engine.ts`.
+- [ ] **Task 2.2: Add `paymentId?` to `AuditLogger.log()` + pass from `RecoveryEngine`**
+  - Description: Add optional `paymentId?: string` to `AuditEntry` interface. When present, `AuditLogger.log()` uses it directly for `db.auditLog.create()` relation, skipping `findUnique({ externalId })`. Pass `payment.id` from all `RecoveryEngine` `auditLogger.log()` call sites. Removes per-call lookup amplification before multi-attempt multiplies it.
+  - Acceptance: `npm test` passes; `npm run typecheck` clean; no behavior change, only removed DB lookup.
+  - Verify: `npm test && npm run typecheck`.
+  - Files: `src/lib/audit/logger.ts`, `src/lib/engine/recovery-engine.ts`.
 
-- [ ] **Task 2.3: Fix Escalation Queue API & Build EscalationQueue UI**
-  - Description: Update `/api/analytics` to query active Level 4 escalations, and create `src/components/EscalationQueue.tsx` component in dashboard.
-  - Acceptance: Level 4 items render with merchant action buttons (Retry, Close, Send Link).
-  - Verify: Dashboard displays escalation queue when Level 4 items exist.
-  - Files: `src/app/api/analytics/route.ts`, `src/components/EscalationQueue.tsx`, `src/app/page.tsx`.
+- [ ] **Task 2.3: Split `processFailure()` → `intake()` + `tick()` (highest-risk task)**
+  - Description: Full engine refactor per spec §12.3. Scope: (a) `intake()` creates first attempt as `outcome: PENDING`, `executedAt: null`; (b) `tick(asOf)` batch-fetches due attempts in one query (`scheduledAt IS NULL OR scheduledAt <= asOf`), re-evaluates stopping rules, simulates outcome, schedules next attempt via `pipeline.processRetry()` on failure; (c) `processFailure()` becomes `intake()` + `tick(clock.now())` shim; (d) fix Step 6 `"FAILED"` status regression — failed attempts leave Payment at `RECOVERY_IN_PROGRESS`; (e) add `processRetry()` to `RecoveryPipeline` (skips diagnosis, no `DIAGNOSIS_COMPLETE` audit entry); (f) add outcome-filter to Rules 3 and 4 in `stopping-rules.ts`; (g) 5 new PENDING/STOPPED_BY_RULE exclusion tests.
+  - Acceptance: All 33+ tests pass; typecheck clean; full diff reviewed before merge.
+  - Verify: `npm test && npm run typecheck` — full diff required.
+  - Files: `src/lib/engine/recovery-engine.ts`, `src/lib/agents/index.ts`, `src/lib/engine/stopping-rules.ts`, `tests/stopping-rules.test.ts`.
+
+- [ ] **Task 2.4: Wire `currentEscalationLevel()` into `CUSTOMER_NUDGE` channel selection**
+  - Description: In `strategy-agent.ts::buildParams()`, replace hardcoded `LEVEL_2_EMAIL` / `channel: "email"` with `currentEscalationLevel(hoursSinceFailure)` → channel derived from `ESCALATION_CONFIG`. Includes `"sms"` branch at `LEVEL_3_SMS`. `StrategyAgent` requires `hoursSinceFailure` context — pass from `RecoveryEngine` via `select()` call.
+  - Acceptance: A `CUSTOMER_NUDGE` attempt at < 1h uses email; at 24h–48h uses sms; `npm test` passes.
+  - Verify: `npm test && npm run typecheck`.
+  - Files: `src/lib/agents/strategy-agent.ts`.
+
+- [ ] **Task 2.5: Quiet-hours defer-not-kill (gated on Decision 1)**
+  - Description: Change quiet-hours trip behavior from `Payment.status = "DEAD"` to rescheduling `scheduledAt` to next 9:00 AM IST, leaving `outcome: PENDING`, not touching Payment.status. Changes existing `tests/stopping-rules.test.ts` assertions for quiet-hours case. Do not start until Decision 1 is explicitly confirmed.
+  - Acceptance: Quiet-hours trip on `CUSTOMER_NUDGE` produces a rescheduled `PENDING` attempt, not `DEAD` payment. All existing tests pass with updated assertions.
+  - Verify: `npm test`.
+  - Files: `src/lib/engine/recovery-engine.ts`, `tests/stopping-rules.test.ts`.
+
+- [ ] **Task 2.6: BatchRunner loop redesign — `intake()` + fixed 1h tick loop**
+  - Description: Replace single `processFailure()` call per payment with: (1) all events through `engine.intake()`; (2) fixed 1h tick loop advancing `VirtualClock` until `MAX_RECOVERY_WINDOW_HOURS + 1h` or no pending attempts remain; (3) `engine.tick(t)` each iteration with one batch query. `calculateReport()` reads final outcomes across all attempts.
+  - Acceptance: 1,000-payment batch produces multi-attempt outcomes; `npm run simulate 1000` completes correctly.
+  - Verify: `npm run simulate 100` (smoke test before 1000).
+  - Files: `src/lib/simulation/batch-runner.ts`.
 
 ---
+
 
 ## Phase 3: DB Query Optimization & RBI Mandate Sequencer
 

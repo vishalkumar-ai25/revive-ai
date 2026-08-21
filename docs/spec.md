@@ -286,3 +286,265 @@ tests/
 - [ ] `npm run lint` and `npm run typecheck` pass with 0 errors.
 - [ ] 1,000-payment batch simulation completes in $<5$s with complete aggregate reporting.
 - [ ] Interactive checkout page `/recover/[paymentId]` works with guardrails gating payment against dead/fraud transactions.
+
+---
+
+## 12. Phase 2 Addendum — Escalation Ladder & Multi-Attempt Lifecycle
+
+**Version:** v2 (reviewed, challenges resolved)
+**Status:** Approved for implementation — all open decisions resolved except Decision 1.
+**Schema impact:** None. All changes work against the existing `prisma/schema.prisma`.
+`RecoveryAttempt.outcome` already defaults to `PENDING`; `stoppedByRule` already exists.
+
+---
+
+### §12.0 Verified Findings (grounded against source, confirmed in review)
+
+1. **The escalation ladder is not progressive.** `LEVEL_3_SMS` / channel `"sms"` exist in
+   `constants.ts` / `types.ts` but are never assigned in `strategy-agent.ts::buildParams()`.
+   Every `CUSTOMER_NUDGE` attempt is hardcoded to `LEVEL_2_EMAIL` forever.
+
+2. **`stoppedByRule` / `STOPPED_BY_RULE` never reach the database.** Both stop paths in
+   `recovery-engine.ts` return `outcome: "STOPPED_BY_RULE"` as an in-memory value and update
+   `Payment.status = "DEAD"`, but no `RecoveryAttempt` row is created in either path. A
+   rule-stopped payment leaves no `recovery_attempts` trace.
+
+3. **Quiet hours permanently kills the payment, not just the one contact.** `recovery-engine.ts`
+   Step 3.5 marks `Payment.status = "DEAD"` on a `QUIET_HOURS` trip — same as fraud. This is
+   almost certainly wrong: quiet hours should defer the nudge, not terminate the payment.
+   See Decision 1.
+
+---
+
+### §12.1 Terminology Clarification
+
+**"Escalation ladder"** in this spec refers specifically to **contact-channel escalation for
+customer-facing strategies** (email → SMS → merchant alert, driven by elapsed time). It does
+**not** control which `RecoveryStrategy` is chosen per attempt — that remains `StrategyAgent`'s
+responsibility, independently, per attempt, based on diagnosis + risk score.
+
+A payment can legitimately sequence: `SMART_RETRY` (attempt 1) → `CUSTOMER_NUDGE` via email
+(attempt 2) → `SMART_RETRY` again (attempt 3). The ladder only decides which *channel* a
+`CUSTOMER_NUDGE` attempt uses at that elapsed-time point.
+
+---
+
+### §12.2 State Machine
+
+#### Payment.status (transitions now span multiple attempts)
+
+```
+FAILED ──▶ RECOVERY_IN_PROGRESS ──▶ RECOVERED   (terminal — an attempt succeeded)
+                │
+                └────────────────▶ DEAD         (terminal — a stopping rule fired)
+```
+
+**Concrete regression to fix (Task 2.3):** `recovery-engine.ts` Step 6 currently does:
+```ts
+status: isSimulatedSuccess ? "RECOVERED" : "FAILED",
+```
+A failed first attempt today sets `Payment.status` back to `"FAILED"`. In the multi-attempt
+world this silently breaks the loop. Fix: a failed attempt must leave `Payment.status` at
+`RECOVERY_IN_PROGRESS`. Only a stopping rule moves it to `DEAD`; only success moves it to
+`RECOVERED`.
+
+#### RecoveryAttempt.outcome
+
+```
+PENDING ──(scheduledAt reached, tick() executes)──▶ SUCCESS → Payment.status = RECOVERED
+                                                  └▶ FAILED  → re-run stopping rules:
+                                                                  stop  → Payment.status = DEAD
+                                                                  pass  → next attempt PENDING
+PENDING ──(stopping rule trips before scheduledAt)──▶ STOPPED_BY_RULE → Payment.status = DEAD
+```
+
+#### Escalation level — time-driven, channel-selection only
+
+```ts
+function currentEscalationLevel(hoursSinceFailure: number): EscalationLevel {
+  // Highest ESCALATION_CONFIG.delayHours threshold crossed wins.
+  // Thresholds: 0h=LEVEL_1_ONSCREEN, 1h=LEVEL_2_EMAIL, 24h=LEVEL_3_SMS,
+  //             48h=LEVEL_4_MERCHANT_ALERT, 72h=LEVEL_5_DEAD
+}
+```
+
+Feeds only the `channel` field of a `CUSTOMER_NUDGE` attempt. `StrategyAgent` strategy
+selection is untouched.
+
+---
+
+### §12.2a `previousAttempts` Outcome Semantics in StoppingRulesEngine (NEW — from review)
+
+**Root cause:** Rules 3 and 4 in `stopping-rules.ts` filter only by `strategy` with no
+`outcome` check. In the multi-attempt world, `tick()` calls `stoppingRules.evaluate()` while
+other attempts are `PENDING`. An unexecuted `PENDING` attempt would be counted toward the
+max-retry limit, potentially blocking a payment that has only made N-1 *completed* retries.
+
+**Outcome semantics for Rules 3 and 4:**
+
+| `RecoveryOutcome` | Counts toward Rules 3/4? | Reason |
+|---|---|---|
+| `FAILED` | ✅ Yes | Ran, didn't recover |
+| `SUCCESS` | ✅ Yes | Ran and recovered |
+| `PENDING` | ❌ No | Not yet executed |
+| `STOPPED_BY_RULE` | ❌ No | Halted before execution, never delivered |
+| `EXPIRED` | ❌ No | Never executed |
+
+**Exact change required in Task 2.3:**
+```ts
+// Rule 3 — count only EXECUTED retries
+const retryAttempts = previousAttempts.filter(
+  (a) => a.strategy === "SMART_RETRY" &&
+         (a.outcome === "FAILED" || a.outcome === "SUCCESS")
+);
+
+// Rule 4 — count only DELIVERED nudges
+const nudgeAttempts = previousAttempts.filter(
+  (a) => a.strategy === "CUSTOMER_NUDGE" &&
+         (a.outcome === "FAILED" || a.outcome === "SUCCESS")
+);
+```
+
+`"outcome"` is already in the `Pick<RecoveryAttempt, ...>` type for `evaluate()` — no
+signature change needed.
+
+**Required tests (add to Task 2.3 in `tests/stopping-rules.test.ts`):**
+- 4× `SMART_RETRY PENDING` → Rule 3 does NOT fire (0 executed retries)
+- 4× `SMART_RETRY FAILED` + 1× `PENDING` → Rule 3 DOES fire (4 executed ≥ MAX_RETRY_ATTEMPTS)
+- 3× `CUSTOMER_NUDGE FAILED` + 1× `PENDING` → Rule 4 DOES fire (3 executed ≥ MAX_NUDGE_MESSAGES)
+- 2× `CUSTOMER_NUDGE FAILED` + 1× `PENDING` → Rule 4 does NOT fire
+- 1× `SMART_RETRY STOPPED_BY_RULE` + 3× `SMART_RETRY FAILED` → Rule 3 does NOT fire
+
+---
+
+### §12.3 RecoveryEngine — `intake()` + `tick()`
+
+#### `intake(event)`
+Everything `processFailure()` does today through Step 4, but Step 5 changes: instead of
+calling `simulateOutcome()` immediately, creates the first `RecoveryAttempt` as
+`outcome: PENDING`, `executedAt: null`, `scheduledAt` = StrategyAgent's computed value.
+Returns without simulating.
+
+#### `tick(asOf: Date)`
+Batch-fetches all due `RecoveryAttempt` rows in **one query per tick**:
+```ts
+where: {
+  outcome: "PENDING",
+  OR: [
+    { scheduledAt: null },        // null = "execute at earliest opportunity"
+    { scheduledAt: { lte: asOf } }
+  ],
+  payment: { status: "RECOVERY_IN_PROGRESS" }
+}
+```
+
+**`scheduledAt: null` semantics:** Means "execute at next tick." tick() must fetch
+`scheduledAt IS NULL OR scheduledAt <= asOf`, not just `scheduledAt <= asOf`, or null-scheduled
+attempts (e.g. an immediate SMART_RETRY) will never be processed.
+
+**Newly created `PENDING` attempts inside the same tick() call are NOT processed that tick** —
+they were not in the initial batch fetch. They will be picked up on the next tick. This is
+correct behavior and must be documented to prevent "it looks broken" confusion.
+
+For each fetched attempt:
+1. Re-run `stoppingRules.evaluate()` (window may have expired since scheduling). If it stops:
+   mark attempt `STOPPED_BY_RULE`, set `stoppedByRule`, `Payment.status = DEAD`, audit log.
+2. Otherwise: `simulateOutcome()`, set `outcome`, `executedAt: asOf`.
+   - `SUCCESS` → `Payment.status = RECOVERED`.
+   - `FAILED` → **leave `Payment.status = RECOVERY_IN_PROGRESS`** → re-run stopping rules for
+     next candidate. If stops: `Payment.status = DEAD`. If passes: call
+     `pipeline.processRetry()` → create next attempt as `PENDING`.
+
+#### `processFailure()` compatibility shim
+`processFailure(event)` = `intake(event)` then immediately `tick(clock.now())`. Preserves
+single-shot behavior for existing callers and tests where scheduledAt is in the past.
+
+---
+
+### §12.4 `RecoveryPipeline.processRetry(event, diagnosis, customerHistory)`
+
+Runs stages 2 (risk) + 3 (strategy) only, using a caller-supplied `DiagnosisResult`.
+**Does not call `DiagnosisAgent.diagnose()`.** Does not emit `DIAGNOSIS_COMPLETE` audit entry
+(which would misrepresent a re-run as a fresh diagnosis).
+
+The reconstructed `DiagnosisResult` has `signals: []` since `FailureEvent` doesn't persist the
+original `signals` array. This affects audit metadata richness on retries only — `signals` is
+not read by risk/strategy scoring.
+
+**Why not re-run the full pipeline?**
+- `DiagnosisAgent` calls Gemini 2.0 Flash (real LLM API). Re-running it on every retry attempt
+  in a 1,000-payment batch = 2,000+ unnecessary API calls.
+- The `FailureEvent` is immutable per payment. Diagnosis output would be identical.
+- Re-emitting `DIAGNOSIS_COMPLETE` in the audit trail would falsely imply a fresh diagnosis.
+
+---
+
+### §12.5 AuditLogger Optimization (folded into Task 2.3)
+
+Add optional `paymentId?: string` to `AuditEntry`. When present, `AuditLogger.log()` uses it
+directly for the `db.auditLog.create()` relation — skipping the `findUnique({ externalId })`
+lookup that fires on every call today.
+
+`RecoveryEngine` always has `payment.id` in scope at every `auditLogger.log()` call site.
+Passing it eliminates the lookup at the call site that dominates audit volume. This is not a
+full N+1 fix (Phase 5's scope) but removes amplification at source before multi-attempt
+multiplies it.
+
+---
+
+### §12.6 BatchRunner Loop — Fixed 1h Ticks
+
+```
+1. generate all N failure events at t0
+2. for each event: engine.intake(event)
+3. let t = t0
+   while t < t0 + (MAX_RECOVERY_WINDOW_HOURS + 1h buffer) AND pendingAttemptsExist():
+     virtualClock.advanceHours(1)   // fixed — matches LEVEL_2_EMAIL 1h granularity
+     t = virtualClock.now()
+     engine.tick(t)                 // one batch query, not N+1
+4. calculateReport()
+```
+
+**Why fixed ticks, not event-driven:** 73 ticks × 1 batch query per tick is not a performance
+problem at N=1,000. Event-driven jumps add min-heap complexity, irregular time gaps that are
+harder to debug, and edge cases around concurrent scheduledAt values. Fixed ticks give a
+uniform, loggable timeline at zero added complexity.
+
+**Phase 5 dependency:** Downgraded from "hard prerequisite" to "independently valuable, not
+blocking." `tick()`'s batch query is written correctly from the start. Phase 5 targets
+remaining N+1 patterns (customer lookup, payment upsert) which exist today and are worth
+fixing independently.
+
+---
+
+### §12.7 Open Decisions
+
+**Decision 1 — Quiet hours: defer or kill?** (OPEN — requires explicit sign-off)
+Proposed: change quiet-hours trip from `Payment.status = "DEAD"` to rescheduling
+`scheduledAt` to next 9:00 AM IST, leaving `outcome: PENDING`, not touching Payment.status.
+This matches `StrategyAgent.calculateNudgeTime()`'s own intent ("push to 9AM"). However, it
+changes existing `tests/stopping-rules.test.ts` assertions. Task 2.5 is gated on this answer.
+
+**Decision 2 — SMS/LEVEL_3 in Phase 2:** ✅ Resolved — include channel-string branch only.
+No SMS delivery provider integration in scope (no SMS dependency in `package.json`; email
+nudges are already simulation-only via Resend, so SMS is no different).
+
+**Decision 3 — Tick granularity:** ✅ Resolved — fixed 1h ticks.
+
+---
+
+### §12.8 Task Breakdown (one commit each)
+
+| Task | Scope | Risk | Files |
+|---|---|---|---|
+| **2.1** | `currentEscalationLevel(hoursSinceFailure)` pure function + tests | Low | `src/lib/engine/escalation-ladder.ts`, `tests/escalation-ladder.test.ts` |
+| **2.2** | Add `paymentId?` to `AuditLogger.log()` + `AuditEntry` type; pass from all `RecoveryEngine` call sites | Low | `src/lib/audit/logger.ts`, `src/lib/engine/recovery-engine.ts` |
+| **2.3** | Split `processFailure()` → `intake()` + `tick()`; fix Step 6 `"FAILED"` regression; add `processRetry()` to pipeline; add outcome-filter to Rules 3/4; fix `tick()` batch query for `scheduledAt: null`; 5 new stopping-rules tests | **High** | `src/lib/engine/recovery-engine.ts`, `src/lib/agents/index.ts`, `src/lib/engine/stopping-rules.ts`, `tests/stopping-rules.test.ts` |
+| **2.4** | Wire `currentEscalationLevel()` into `CUSTOMER_NUDGE` channel selection including `"sms"` at LEVEL_3 | Low | `src/lib/agents/strategy-agent.ts` |
+| **2.5** | Quiet-hours defer-not-kill (Decision 1) — gated on answer | Medium | `src/lib/engine/recovery-engine.ts`, `tests/stopping-rules.test.ts` |
+| **2.6** | BatchRunner loop redesign: `intake()` + fixed 1h tick loop | Medium | `src/lib/simulation/batch-runner.ts` |
+
+**Note — Task 2.7 dropped:** `analytics/route.ts` escalation queue already queries
+`outcome: "PENDING"` at `LEVEL_4_MERCHANT_ALERT`. This is correct as-is and needs no changes.
+Verified directly against source.
+
