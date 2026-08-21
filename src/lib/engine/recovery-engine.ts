@@ -91,6 +91,7 @@ export class RecoveryEngine {
       });
 
       await this.auditLogger.log({
+        paymentId: payment.id,
         paymentExternalId: event.externalId,
         agentName: "StoppingRulesEngine",
         action: "RECOVERY_STOPPED",
@@ -136,6 +137,7 @@ export class RecoveryEngine {
       });
 
       await this.auditLogger.log({
+        paymentId: payment.id,
         paymentExternalId: event.externalId,
         agentName: "StoppingRulesEngine",
         action: "RECOVERY_STOPPED",
@@ -211,6 +213,7 @@ export class RecoveryEngine {
 
     // Log final outcome
     await this.auditLogger.log({
+      paymentId: payment.id,
       paymentExternalId: event.externalId,
       agentName: "RecoveryEngine",
       action: isSimulatedSuccess ? "PAYMENT_RECOVERED" : "RECOVERY_ATTEMPT_FAILED",

@@ -36,7 +36,7 @@
   - Verify: `npm test` (new `tests/escalation-ladder.test.ts`).
   - Files: `src/lib/engine/escalation-ladder.ts`, `tests/escalation-ladder.test.ts`.
 
-- [ ] **Task 2.2: Add `paymentId?` to `AuditLogger.log()` + pass from `RecoveryEngine`**
+- [x] **Task 2.2: Add `paymentId?` to `AuditLogger.log()` + pass from `RecoveryEngine`**
   - Description: Add optional `paymentId?: string` to `AuditEntry` interface. When present, `AuditLogger.log()` uses it directly for `db.auditLog.create()` relation, skipping `findUnique({ externalId })`. Pass `payment.id` from all `RecoveryEngine` `auditLogger.log()` call sites. Removes per-call lookup amplification before multi-attempt multiplies it.
   - Acceptance: `npm test` passes; `npm run typecheck` clean; no behavior change, only removed DB lookup.
   - Verify: `npm test && npm run typecheck`.

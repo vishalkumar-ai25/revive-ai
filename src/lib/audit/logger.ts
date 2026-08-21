@@ -11,7 +11,8 @@ import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 
 export interface AuditEntry {
-  paymentExternalId: string;
+  paymentId?: string;
+  paymentExternalId?: string;
   agentName: string;
   action: string;
   reasoning: string;
@@ -26,22 +27,35 @@ export class AuditLogger {
    */
   async log(entry: AuditEntry): Promise<void> {
     try {
-      // Look up the payment by external ID
-      const payment = await db.payment.findUnique({
-        where: { externalId: entry.paymentExternalId },
-        select: { id: true },
-      });
+      let paymentId = entry.paymentId;
 
-      if (!payment) {
-        console.warn(
-          `[AuditLogger] Payment not found for external ID: ${entry.paymentExternalId}`,
-        );
-        return;
+      // If direct paymentId was not supplied, resolve via external ID
+      if (!paymentId) {
+        if (!entry.paymentExternalId) {
+          console.warn(
+            "[AuditLogger] Neither paymentId nor paymentExternalId provided",
+          );
+          return;
+        }
+
+        const payment = await db.payment.findUnique({
+          where: { externalId: entry.paymentExternalId },
+          select: { id: true },
+        });
+
+        if (!payment) {
+          console.warn(
+            `[AuditLogger] Payment not found for external ID: ${entry.paymentExternalId}`,
+          );
+          return;
+        }
+
+        paymentId = payment.id;
       }
 
       await db.auditLog.create({
         data: {
-          paymentId: payment.id,
+          paymentId,
           agentName: entry.agentName,
           action: entry.action,
           reasoning: entry.reasoning,
