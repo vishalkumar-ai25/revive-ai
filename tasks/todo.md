@@ -30,7 +30,7 @@
 
 ## Phase 2: Dynamic Escalation Ladder & Multi-Attempt Lifecycle
 
-- [ ] **Task 2.1: `currentEscalationLevel()` pure function + tests**
+- [x] **Task 2.1: `currentEscalationLevel()` pure function + tests**
   - Description: Add `currentEscalationLevel(hoursSinceFailure: number): EscalationLevel` in a new `src/lib/engine/escalation-ladder.ts`. Returns the highest `ESCALATION_CONFIG.delayHours` threshold crossed. Pure function — no side effects, no behavior change yet (unused until Task 2.4).
   - Acceptance: All escalation-ladder tests pass; function is not yet wired into any call site.
   - Verify: `npm test` (new `tests/escalation-ladder.test.ts`).
