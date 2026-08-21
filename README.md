@@ -27,7 +27,7 @@ flowchart TB
         STOP[Stopping Rules Engine<br/>Max 4 Retries · Quiet Hours · Fraud Exclusions]
     end
 
-    subgraph Agents["🧠 LangGraph Multi-Agent Pipeline"]
+    subgraph Agents["🧠 Sequential Recovery Pipeline"]
         DA[DiagnosisAgent<br/>Gemini 2.0 Flash + Deterministic Fallback]
         RA[RiskAssessmentAgent<br/>Multi-Factor Weighted Recovery Scorer]
         SA[StrategyAgent<br/>Intervention & Timing Sequencer]
@@ -56,7 +56,7 @@ flowchart TB
 
 ---
 
-## 🤖 The Multi-Agent Pipeline
+## 🤖 The Sequential Recovery Pipeline
 
 1. **`DiagnosisAgent` (Root Cause Identification)**
    - Analyzes raw error codes, bank latency profiles, payment methods, and timestamps.
