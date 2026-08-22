@@ -21,47 +21,10 @@ Before *any* agent is allowed to execute an action, a strict, deterministic Stop
 
 To prove the system's scalability and decision-making logic, we built a virtual time-travel simulator. It ingests synthetic failed payments and advances a virtual clock over a 169-hour period, running the multi-agent pipeline against every payment and its subsequent retries.
 
-**Actual Benchmark Report Output:**
-```text
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  📊 REVIVE AI — BATCH RECOVERY BENCHMARK REPORT (1,000 PAYMENTS)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+**Actual Benchmark Report Output (Hosted Neon):**
 
-  Total Failed Payments:        1,000
-  Total Revenue at Risk:        ₹5,080,425
-
-  ✅ Payments Recovered:        969 (96.9%)
-  ✅ Revenue Recovered:         ₹5,016,013 (98.7% GMV recovered)
-  ⏱  Total Benchmark Time:     2.3s (2ms per payment)
-
-  CATEGORY BREAKDOWN:
-    BANK_TIMEOUT             291 / 292 recovered        (99.7%)
-    INSUFFICIENT_FUNDS       179 / 179 recovered        (100.0%)
-    UPI_PSP_ERROR            110 / 110 recovered        (100.0%)
-    CARD_DECLINED            107 / 107 recovered        (100.0%)
-    CHECKOUT_ABANDONED       71 / 82 recovered          (86.6%)
-    NETWORK_ERROR            78 / 78 recovered          (100.0%)
-    OTP_EXPIRED              45 / 48 recovered          (93.8%)
-    SUBSCRIPTION_FAILED      42 / 42 recovered          (100.0%)
-    LIMIT_EXCEEDED           40 / 40 recovered          (100.0%)
-    FRAUD_DETECTED           0 / 16 recovered           (0.0%)
-    MANDATE_EXPIRED          6 / 6 recovered            (100.0%)
-
-  STRATEGY BREAKDOWN:
-    SMART_RETRY              479 successful out of 590 attempted
-    ALT_PAYMENT              332 successful out of 593 attempted
-    CUSTOMER_NUDGE           158 successful out of 271 attempted
-    DO_NOTHING               0 successful out of 16 attempted
-
-  STOPPING RULES & COMPLIANCE ENFORCEMENT:
-    Fraud Blocks Enforced:       16 transactions (100% compliance)
-    Quiet Hours Deferrals:       0 nudges deferred to 9:00 AM IST
-    Retry Cap Terminations:      0 transactions halted at 4 attempts
-    Below Min Amount Halted:     0 transactions under ₹50
-    Total Stopped by Rules:      31 payments marked DEAD
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
+![Neon Benchmark Execution](docs/assets/benchmark_execution.webp)
+![Neon Benchmark Report](docs/assets/benchmark_report.webp)
 
 > **Benchmark Execution Timing:**
 > - **Local PostgreSQL (Zero Latency):** 2.3 seconds total (2ms per payment). Used to validate pure engine logic and throughput.
