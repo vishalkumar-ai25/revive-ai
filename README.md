@@ -13,52 +13,9 @@ Current systems either **do nothing** or **blindly retry**, causing spam, custom
 
 ---
 
-## 🏗️ System Architecture
+## 🏗️ How Our Multi-Agent System Is Structured
 
-```mermaid
-flowchart TB
-    subgraph Ingestion["📥 Event Ingestion Layer"]
-        WH[Webhook Ingestion API<br/>/api/webhooks/payment]
-        SIM[Batch Simulator Engine<br/>Synthetic Indian Failure Gen]
-    end
-
-    subgraph Memory["🗄️ State & Compliance Guardrails"]
-        DB[(PostgreSQL / Prisma)]
-        STOP[Stopping Rules Engine<br/>Max 4 Retries · Quiet Hours · Fraud Exclusions]
-    end
-
-    subgraph Agents["🧠 Multi-Agent Recovery Pipeline"]
-        DA[DiagnosisAgent<br/>Gemini 2.0 Flash + Deterministic Fallback]
-        RA[RiskAssessmentAgent<br/>Multi-Factor Weighted Recovery Scorer]
-        SA[StrategyAgent<br/>Intervention & Timing Sequencer]
-    end
-
-    subgraph Execution["⚡ Bounded Interventions"]
-        R1[Smart Bank-Window Retry]
-        R2[Customer Action Nudge]
-        R3[Alternative Method Suggester]
-        R4[Merchant Escalation Queue]
-    end
-
-    subgraph Audit["📜 Immutable Audit Trail"]
-        LOG[Audit Trail Logger<br/>Full Reasoning & Provenance Logs]
-    end
-
-    WH --> STOP
-    SIM --> STOP
-    STOP -->|Pass| DA
-    STOP -->|Halt| DB
-    DA --> RA --> SA
-    SA --> R1 & R2 & R3 & R4
-    R1 & R2 & R3 & R4 --> DB
-    DA & RA & SA & STOP --> LOG --> DB
-```
-
----
-
-## 🤖 How Our Multi-Agent System Is Structured
-
-ReviveAI implements a **custom, lightweight, type-safe multi-agent architecture in pure TypeScript** (no heavy external graph frameworks like LangGraph). This guarantees sub-millisecond execution (~12ms per transaction), 100% deterministic fallback during LLM outages or rate limits (HTTP 429), and strict compliance boundaries.
+ReviveAI implements a **custom, lightweight, type-safe multi-agent architecture in pure TypeScript** (zero heavy framework overhead like LangGraph). This guarantees sub-millisecond execution (~12ms per transaction), 100% deterministic fallback during LLM outages or rate limits (HTTP 429), and strict compliance boundaries.
 
 ```mermaid
 flowchart TD
@@ -67,54 +24,55 @@ flowchart TD
     subgraph MultiAgentCore["🧠 Autonomous Multi-Agent Core"]
         direction TB
         
-        A1["1️⃣ DiagnosisAgent<br/>• Google Gemini 2.0 Flash (structured JSON output)<br/>• 24-code deterministic rule fallback<br/>• Extracts signals (late night, recurring)"]
+        A1["1️⃣ DiagnosisAgent<br/>• Google Gemini 2.0 Flash (structured JSON schema)<br/>• 24-code deterministic rule fallback<br/>• Context signals (late night, recurring)"]
         
         A2["2️⃣ RiskAssessmentAgent<br/>• Multi-factor weighted scoring model<br/>• Evaluates CLV, Amount, Category Base Rate<br/>• Computes Recovery Probability (0.0 to 1.0)"]
         
         A3["3️⃣ StrategyAgent<br/>• Selects bounded recovery strategy<br/>• Calculates optimal retry/nudge timing<br/>• Maps 5-tier escalation channel"]
 
-        A4["🔄 MandateRetrySequencer<br/>(Recurring E-Mandates)<br/>• 4-attempt spacing (T+0, T+48h, T+96h, T+144h)<br/>• 10:15 AM IST bank clearing windows<br/>• Rail fallback (UPI → e-NACH → On-Demand)<br/>• 24h pre-debit notifications"]
+        A4["🔄 MandateRetrySequencer<br/>(Recurring E-Mandates)<br/>• 4-attempt spacing (T+0, T+48h, T+96h, T+144h)<br/>• 10:15 AM IST bank clearing windows<br/>• Progressive rail fallback (UPI → e-NACH → On-Demand)<br/>• 24h pre-debit notifications"]
 
         A1 -->|DiagnosisResult| A2
         A2 -->|RiskAssessmentResult| A3
-        A3 -.->|Recurring Mandate| A4
+        A3 -.->|Mandate Context| A4
     end
 
     ORCH --> A1
 
-    subgraph Guardrails["🛡️ Compliance & Guardrails Engine"]
+    subgraph Guardrails["🛡️ Guardrails & Compliance Engine"]
         direction TB
         SRE["StoppingRulesEngine (6 Non-Negotiable Rules)<br/>1. FRAUD_BLOCK (Never retry fraud)<br/>2. BELOW_MIN_AMOUNT (< ₹50)<br/>3. MAX_RETRIES_EXCEEDED (≥ 4 retries)<br/>4. MAX_NUDGES_EXCEEDED (≥ 3 nudges)<br/>5. RECOVERY_WINDOW_EXPIRED (72h / 168h)<br/>6. QUIET_HOURS (9 PM – 9 AM IST)"]
+        
+        P1["Passed"]
+        P2["Hard Stop / Violation"]
+        P3["Quiet Hours (9 PM–9 AM IST)"]
+        
+        SRE --> P1 & P2 & P3
+        
+        ACT_EXEC["Execute Recovery / Schedule Attempt<br/>• SMART_RETRY (Bank-optimal windows)<br/>• CUSTOMER_NUDGE (Email / SMS / WhatsApp)<br/>• ALT_PAYMENT (On-demand link)"]
+        ACT_HALT["Halt Recovery Permanently<br/>• DO_NOTHING (Fraud or limit reached)<br/>• ESCALATE_MERCHANT (Dashboard alert)"]
+        ACT_DEFER["Defer Outreach to 9:00 AM IST<br/>• OUTREACH_DEFERRED (Status: IN_PROGRESS)"]
+        
+        P1 --> ACT_EXEC
+        P2 --> ACT_HALT
+        P3 --> ACT_DEFER
     end
 
-    A3 -->|StrategySelection| SRE
-    A4 -->|MandateSchedule| SRE
-
-    subgraph Outcomes["⚡ Bounded Actions & State Machine"]
-        ACT1["🟢 SMART_RETRY<br/>(Bank-optimal clearing windows)"]
-        ACT2["📩 CUSTOMER_NUDGE<br/>(Email / SMS / WhatsApp)"]
-        ACT3["💳 ALT_PAYMENT<br/>(On-demand payment link)"]
-        ACT4["🚨 ESCALATE_MERCHANT<br/>(Merchant dashboard alert)"]
-        ACT5["🛑 DO_NOTHING / HALT<br/>(Fraud or limit reached)"]
-        ACT6["⏰ OUTREACH_DEFERRED<br/>(Scheduled for 9:00 AM IST)"]
-    end
-
-    SRE -->|Rule Passed| ACT1 & ACT2 & ACT3 & ACT4
-    SRE -->|Hard Stop Violation| ACT5
-    SRE -->|Quiet Hours Hit| ACT6
+    A3 --> SRE
+    A4 --> SRE
 
     subgraph Provenance["📜 Immutable Audit Trail"]
-        AUDIT["AuditLogger (PostgreSQL)<br/>• Records human-readable reasoning<br/>• Preserves agent decisions before/after action<br/>• Zero-crash fault isolation"]
+        AUDIT["AuditLogger (PostgreSQL)<br/>• Records complete reasoning & agent provenance<br/>• Non-blocking zero-crash fault isolation"]
     end
 
-    A1 -.-> AUDIT
-    A2 -.-> AUDIT
-    A3 -.-> AUDIT
-    SRE -.-> AUDIT
-    ACT1 & ACT2 & ACT3 & ACT4 & ACT5 & ACT6 --> AUDIT
+    ACT_EXEC --> AUDIT
+    ACT_HALT --> AUDIT
+    ACT_DEFER --> AUDIT
 ```
 
-### Agent Roles & Execution Responsibilities
+---
+
+### 🤖 Agent Roles & Execution Responsibilities
 
 1. **[`DiagnosisAgent`](file:///Users/vishalkumar/revive-ai/src/lib/agents/diagnosis-agent.ts) (Root Cause Identification)**
    - Analyzes raw error codes, bank latency profiles, payment methods, and timestamps.
@@ -135,7 +93,7 @@ flowchart TD
    - Maps customer outreach to the **5-Tier Escalation Ladder** (On-screen $\to$ Email $\to$ SMS $\to$ Merchant Alert $\to$ Dead).
 
 4. **[`MandateRetrySequencer`](file:///Users/vishalkumar/revive-ai/src/lib/agents/mandate-sequencer.ts) (Recurring E-Mandate Recovery)**
-   - Autonomous sequencer for subscription and mandate failures.
+   - Autonomous sequencer for subscription and recurring mandate failures.
    - Implements 4-attempt spacing ($T_0 \to T+48\text{h} \to T+96\text{h} \to T+144\text{h}$) aligned with Indian bank clearing windows (10:15 AM IST).
    - Progressive rail switching: `UPI_AUTOPAY` $\to$ `E_NACH` $\to$ `ON_DEMAND_LINK`.
    - Generates mandatory 24-hour pre-debit notifications prior to each execution.
@@ -146,7 +104,7 @@ flowchart TD
 
 6. **[`AuditLogger`](file:///Users/vishalkumar/revive-ai/src/lib/audit/logger.ts) (Immutable Decision Trail)**
    - Writes immutable audit records to PostgreSQL before and after every recovery decision.
-   - Captures human-readable reasoning, agent provenance, and metadata without blocking money movement.
+   - Captures human-readable reasoning, agent provenance, and metadata without blocking financial state changes.
 
 ---
 
@@ -166,9 +124,9 @@ ReviveAI is built specifically to address the criteria defined in **Track 03 —
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js >= 18.x
+- Node.js >= 20.x
 - PostgreSQL database (Neon, Supabase, or local)
-- Google AI Studio API Key ([Get free key](https://aistudio.google.com/))
+- Google AI Studio API Key ([Get free key](https://aistudio.google.com/)) *(Optional: engine falls back to deterministic rules if omitted)*
 
 ### Installation
 
@@ -182,11 +140,10 @@ npm install
 
 # 3. Setup environment variables
 cp .env.example .env
-# Fill in your DATABASE_URL and GOOGLE_AI_API_KEY
+# Fill in your DATABASE_URL
 
-# 4. Generate Prisma Client & push schema
-npm run db:push
-npm run db:seed
+# 4. Push database schema
+npx prisma db push
 
 # 5. Run development server
 npm run dev
@@ -197,11 +154,18 @@ Visit `http://localhost:3000` to access the Merchant Recovery Dashboard.
 ### Running Batch Simulations via CLI
 
 ```bash
-# Run 100 payment simulation
-npx tsx src/lib/simulation/batch-runner.ts 100
+# Run 50 payment simulation
+npm run simulate 50
 
-# Run 1,000 payment benchmark
-npx tsx src/lib/simulation/batch-runner.ts 1000
+# Run 1,000 payment benchmark (<3 seconds execution)
+npm run simulate 1000
+```
+
+### Running Automated Test Suite
+
+```bash
+# Run all 128 tests across 28 suites
+npm test
 ```
 
 ---
