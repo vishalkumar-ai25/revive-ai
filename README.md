@@ -32,7 +32,7 @@ To prove the system's scalability and decision-making logic, we built a virtual 
 
   ✅ Payments Recovered:        969 (96.9%)
   ✅ Revenue Recovered:         ₹5,016,013 (98.7% GMV recovered)
-  ⏱  Total Benchmark Time:     1.8s (2ms per payment)
+  ⏱  Total Benchmark Time:     2.3s (2ms per payment)
 
   CATEGORY BREAKDOWN:
     BANK_TIMEOUT             291 / 292 recovered        (99.7%)
@@ -63,7 +63,7 @@ To prove the system's scalability and decision-making logic, we built a virtual 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-> **Note on Benchmark Timing:** This 1.8s / 1,000-payment benchmark was measured against a local PostgreSQL instance (Homebrew) to validate engine throughput independent of network latency. The same optimizations apply when running against hosted Neon Serverless Postgres, but the exact hosted-latency timing has not been re-benchmarked since the round-trip reduction work landed; a prior, pre-optimization baseline measured ~17.5 minutes for 100 payments over Neon.
+> **Note on Benchmark Timing:** This 2.3s / 1,000-payment benchmark was measured against a local PostgreSQL instance (Homebrew) to validate engine throughput independent of network latency. The same optimizations apply when running against hosted Neon Serverless Postgres, but the exact hosted-latency timing has not been re-benchmarked since the round-trip reduction work landed; a prior, pre-optimization baseline measured ~17.5 minutes for 100 payments over Neon.
 
 ## 🛠 Quick Start Guide
 
