@@ -72,7 +72,8 @@ export class BatchRunner {
         arr.slice(i * size, i * size + size)
       );
 
-    const CONCURRENCY_LIMIT = 20; // Match Neon connection pool
+    // Reduced from 20 to 10 to prevent macOS socket exhaustion when running locally
+    const CONCURRENCY_LIMIT = 10;
     const eventChunks = chunkArray(events, CONCURRENCY_LIMIT);
     
     let ingestedCount = 0;
