@@ -1,289 +1,145 @@
-# ⚡ ReviveAI — Autonomous Payment Revenue Recovery System
+# ReviveAI
+> **Razorpay AI Buildathon 2026 · Track 03: Autonomous Revenue Recovery**
 
-> **Razorpay AI Builder Buildathon 2026 — Track 03: AI Revenue Recovery**  
-> An autonomous multi-agent platform that detects revenue at risk, diagnoses root causes across Indian banking rails & PSPs, and executes bounded recovery workflows with compliant stopping rules and immutable audit trails.
+ReviveAI is a deterministic, rule-bounded multi-agent pipeline designed to recover failed payments, abandoned checkouts, and broken subscriptions for Indian merchants. It acts as an autonomous collections team, analyzing every failure and executing custom recovery strategies without human intervention, while strictly adhering to compliance and quiet-hour regulations.
 
----
+## 🚀 The Multi-Agent Pipeline (How it works)
 
-<div align="center">
+When a payment fails (e.g., Bank Timeout, Insufficient Funds, OTP Expired), the event enters the ReviveAI pipeline and is processed by three specialized agents in real-time:
 
-[![Track](https://img.shields.io/badge/Razorpay_Buildathon_2026-Track_03:_AI_Revenue_Recovery-blue.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
-[![Tests](https://img.shields.io/badge/Automated_Tests-134%2F134_Passing_(100%25)-brightgreen.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
-[![Performance](https://img.shields.io/badge/Pipeline_Speed-Fast_Execution-orange.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
-[![TypeScript](https://img.shields.io/badge/TypeScript-Strict_Mode_(0_Errors)-blue.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
-[![Architecture](https://img.shields.io/badge/AI_Engine-Gemini_2.0_Flash_%2B_Deterministic_Fallback-purple.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
+1. **Diagnosis Agent:** Analyzes the raw error code, bank, and payment method. It uses deterministic rules for known errors, falling back to a Google Gemini LLM for nuanced or ambiguous error interpretation.
+2. **Risk Assessment Agent:** Evaluates the customer's lifetime value and history to calculate a mathematical `RecoveryProbability` score.
+3. **Strategy Agent:** Based on the diagnosis and risk score, it selects the optimal recovery action (`SMART_RETRY`, `CUSTOMER_NUDGE`, `ALT_PAYMENT`, or `ESCALATE_MERCHANT`).
 
-</div>
+### 🛡 The Stopping Rules Engine (Compliance Guardrails)
+Before *any* agent is allowed to execute an action, a strict, deterministic Stopping Rules Engine evaluates the decision to ensure compliance:
+* **Quiet Hours:** If the Strategy Agent decides to SMS/Email a customer at 11:00 PM IST, the rules engine physically blocks it and reschedules it for 9:00 AM IST. (Silent backend `SMART_RETRY` is permitted 24/7).
+* **Fraud Protection:** Any transaction flagged as `FRAUD_DETECTED` is instantly killed (`DEAD`). Zero retries are permitted.
+* **Time & Attempt Limits:** A hard limit of 4 retries, 3 customer nudges, and a strict 72-hour window (168 hours for mandates) are enforced to prevent spam.
 
----
+## 📊 1,000-Payment Batch Simulation Benchmark
 
-## 🎯 The Problem
+To prove the system's scalability and decision-making logic, we built a virtual time-travel simulator. It ingests synthetic failed payments and advances a virtual clock over a 169-hour period, running the multi-agent pipeline against every payment and its subsequent retries.
 
-In India, **30%–35% of all payment attempts degrade or fail** due to bank timeouts, insufficient funds, network drops, and PSP throttling. For a high-velocity merchant, this means lakhs of rupees in GMV leaking daily.
-
-Current systems either **do nothing** or **blindly retry**, causing spam, customer frustration, and regulatory compliance violations.
-
----
-
-## 🏗️ How Our Multi-Agent System Is Structured
-
-ReviveAI implements a **custom, lightweight, type-safe multi-agent architecture in pure TypeScript** (zero heavy framework overhead like LangGraph). This guarantees fast execution, 100% deterministic fallback during LLM outages or rate limits (HTTP 429), and strict compliance boundaries.
-
-```mermaid
-flowchart TD
-    WH["📥 Payment Failure Event / Webhook<br/>(PaymentFailureEvent)"] --> ORCH["⚙️ RecoveryPipeline Orchestrator<br/>(src/lib/agents/index.ts)"]
-
-    subgraph MultiAgentCore["🧠 Autonomous Multi-Agent Core"]
-        direction TB
-        
-        A1["1️⃣ DiagnosisAgent<br/>• Google Gemini 2.0 Flash (structured JSON schema)<br/>• 24-code deterministic rule fallback<br/>• Context signals (late night, recurring)"]
-        
-        A2["2️⃣ RiskAssessmentAgent<br/>• Multi-factor weighted scoring model<br/>• Evaluates CLV, Amount, Category Base Rate<br/>• Computes Recovery Probability (0.0 to 1.0)"]
-        
-        A3["3️⃣ StrategyAgent<br/>• Selects bounded recovery strategy<br/>• Calculates optimal retry/nudge timing<br/>• Maps 5-tier escalation channel"]
-
-        A4["🔄 MandateRetrySequencer<br/>(Recurring E-Mandates)<br/>• 4-attempt spacing (T+0, T+48h, T+96h, T+144h)<br/>• 10:15 AM IST bank clearing windows<br/>• Progressive rail fallback (UPI → e-NACH → On-Demand)<br/>• 24h pre-debit notifications"]
-
-        A1 -->|DiagnosisResult| A2
-        A2 -->|RiskAssessmentResult| A3
-        A3 -.->|Mandate Context| A4
-    end
-
-    ORCH --> A1
-
-    subgraph Guardrails["🛡️ Guardrails & Compliance Engine"]
-        direction TB
-        SRE["StoppingRulesEngine (6 Non-Negotiable Rules)<br/>1. FRAUD_BLOCK (Never retry fraud)<br/>2. BELOW_MIN_AMOUNT (< ₹50)<br/>3. MAX_RETRIES_EXCEEDED (≥ 4 retries)<br/>4. MAX_NUDGES_EXCEEDED (≥ 3 nudges)<br/>5. RECOVERY_WINDOW_EXPIRED (72h / 168h)<br/>6. QUIET_HOURS (9 PM – 9 AM IST)"]
-        
-        P1["Passed"]
-        P2["Hard Stop / Violation"]
-        P3["Quiet Hours (9 PM–9 AM IST)"]
-        
-        SRE --> P1 & P2 & P3
-        
-        ACT_EXEC["Execute Recovery / Schedule Attempt<br/>• SMART_RETRY (Bank-optimal windows)<br/>• CUSTOMER_NUDGE (Email / SMS / WhatsApp)<br/>• ALT_PAYMENT (On-demand link)"]
-        ACT_HALT["Halt Recovery Permanently<br/>• DO_NOTHING (Fraud or limit reached)<br/>• ESCALATE_MERCHANT (Dashboard alert)"]
-        ACT_DEFER["Defer Outreach to 9:00 AM IST<br/>• OUTREACH_DEFERRED (Status: IN_PROGRESS)"]
-        
-        P1 --> ACT_EXEC
-        P2 --> ACT_HALT
-        P3 --> ACT_DEFER
-    end
-
-    A3 --> SRE
-    A4 --> SRE
-
-    subgraph Provenance["📜 Immutable Audit Trail"]
-        AUDIT["AuditLogger (PostgreSQL)<br/>• Records complete reasoning & agent provenance<br/>• Non-blocking zero-crash fault isolation"]
-    end
-
-    ACT_EXEC --> AUDIT
-    ACT_HALT --> AUDIT
-    ACT_DEFER --> AUDIT
-```
-
----
-
-### 🤖 Agent Roles & Responsibilities
-
-1. **[`DiagnosisAgent`](file:///Users/vishalkumar/revive-ai/src/lib/agents/diagnosis-agent.ts) (Root Cause Identification)**
-   - Analyzes raw error codes, bank latency profiles, payment methods, and timestamps.
-   - Uses **Google Gemini 2.0 Flash** for unstructured error context with an instant 24-code **deterministic rule fallback** if the API is unconfigured or rate-limited.
-   - Extracts contextual signals (e.g. `late_night_failure` during 11 PM–2 AM IST, `recurring_payment` mandate context).
-
-2. **[`RiskAssessmentAgent`](file:///Users/vishalkumar/revive-ai/src/lib/agents/risk-assessment-agent.ts) (Recovery Viability Scoring)**
-   - Computes an empirical weighted recovery probability score based on 5 factors:
-     - Failure Category Base Rate (weight: 0.35)
-     - Customer Lifetime Value / CLV (weight: 0.25)
-     - Payment Amount (weight: 0.20)
-     - Diagnosis Confidence (weight: 0.10)
-     - Recoverability Signal (weight: 0.10)
-
-3. **[`StrategyAgent`](file:///Users/vishalkumar/revive-ai/src/lib/agents/strategy-agent.ts) (Intervention & Timing Sequencer)**
-   - Selects the optimal recovery action: `SMART_RETRY`, `CUSTOMER_NUDGE`, `ALT_PAYMENT`, `ESCALATE_MERCHANT`, or `DO_NOTHING`.
-   - Schedules retries during **bank-optimal clearing windows** (e.g., avoiding bank maintenance hours).
-   - Maps customer outreach to the **5-Tier Escalation Ladder** (On-screen $\to$ Email $\to$ SMS $\to$ Merchant Alert $\to$ Dead).
-
-4. **[`MandateRetrySequencer`](file:///Users/vishalkumar/revive-ai/src/lib/agents/mandate-sequencer.ts) (Recurring E-Mandate Recovery)**
-   - Autonomous sequencer for subscription and recurring mandate failures.
-   - Implements 4-attempt spacing ($T_0 \to T+48\text{h} \to T+96\text{h} \to T+144\text{h}$) aligned with Indian bank clearing windows (10:15 AM IST).
-   - Progressive rail switching: `UPI_AUTOPAY` $\to$ `E_NACH` $\to$ `ON_DEMAND_LINK`.
-   - Generates mandatory 24-hour pre-debit notifications prior to each execution.
-
-5. **[`StoppingRulesEngine`](file:///Users/vishalkumar/revive-ai/src/lib/engine/stopping-rules.ts) (Compliance Guardrails)**
-   - Enforces **6 non-negotiable rules**: Fraud blocks (zero-retry), minimum amount (<₹50), max 4 retries, max 3 nudges, recovery window expiry (72h standard / 168h mandate), and **Quiet Hours** (9:00 PM – 9:00 AM IST).
-   - Quiet hours safely defers customer nudges to 9:00 AM IST while permitting silent backend bank retries.
-
-6. **[`AuditLogger`](file:///Users/vishalkumar/revive-ai/src/lib/audit/logger.ts) (Immutable Decision Trail)**
-   - Writes immutable audit records to PostgreSQL before and after every recovery decision.
-   - Captures human-readable reasoning, agent provenance, and metadata without blocking financial state changes.
-
----
-
-## 📜 Explainable AI in Action — Real Multi-Agent Audit Trail
-
-Every recovery decision in ReviveAI writes an immutable provenance log capturing the full chain-of-thought across all agents. Below is an actual audit trail for a transaction that failed late at night:
-
-```json
-[
-  {
-    "agentName": "DiagnosisAgent",
-    "action": "DIAGNOSIS_COMPLETE",
-    "reasoning": "Classified BANK_TIMEOUT with 85% confidence. Root cause: HDFC bank gateway failed to respond within 15000ms. Detected late_night_failure signal (23:42 IST).",
-    "metadata": { "category": "BANK_TIMEOUT", "confidence": 0.85, "isRecoverable": true }
-  },
-  {
-    "agentName": "RiskAssessmentAgent",
-    "action": "RISK_ASSESSED",
-    "reasoning": "Recovery probability: 0.78. High-value loyal customer (6 purchases, ₹14,500 LTV). Category base recovery rate for BANK_TIMEOUT is 75%.",
-    "metadata": { "recoveryProbability": 0.78, "shouldAttemptRecovery": true }
-  },
-  {
-    "agentName": "StrategyAgent",
-    "action": "STRATEGY_SELECTED",
-    "reasoning": "Selected SMART_RETRY. Identified bank maintenance window (HDFC overnight batch). Scheduled retry for next optimal clearing window at 10:15 AM IST.",
-    "metadata": { "strategy": "SMART_RETRY", "optimalExecutionTime": "2026-08-22T04:45:00.000Z" }
-  },
-  {
-    "agentName": "StoppingRulesEngine",
-    "action": "OUTREACH_DEFERRED",
-    "reasoning": "Quiet hours active (11:42 PM IST). Customer nudge prohibited between 9:00 PM – 9:00 AM IST. Backend smart retry scheduled; customer communication deferred to 9:00 AM IST.",
-    "metadata": { "rule": "QUIET_HOURS", "rescheduledFor": "2026-08-22T03:30:00.000Z" }
-  }
-]
-```
-
----
-
-## 📊 Evaluation & The Bar
-
-ReviveAI is built specifically to address the criteria defined in **Track 03 — The Bar**:
-
-| Judging Criterion | Implementation in ReviveAI | Direct Verification Command |
-|---|---|:---:|
-| **1. Measured money recovered across a batch** | Simulates 1,000+ payments across realistic Indian failure distributions, tracking recovered GMV and percentage lift. | `npm run simulate 1000` |
-| **2. Compliant escalation ladder** | 5-level progressive contact ladder (`On-screen` $\to$ `Email` $\to$ `SMS` $\to$ `Merchant Alert` $\to$ `Dead stop`). | `npx tsx --test tests/multi-attempt-lifecycle.test.ts` |
-| **3. Strict stopping rules** | Pure rule engine enforcing 4-retry cap, 3-nudge cap, quiet hours (9 PM–9 AM IST), and zero-tolerance fraud blocks. | `npx tsx --test tests/stopping-rules.test.ts` |
-| **4. Immutable audit trail** | Immutable `audit_logs` table storing every agent's step-by-step chain-of-thought, decision factors, and timestamps. | `npx tsx --test tests/pipeline.test.ts` |
-
----
-
-## 📈 1,000-Payment Batch Simulation Benchmark
-
-Run the full 1,000-transaction synthetic benchmark (Note: requires a pooled database connection; execution time depends on network latency):
-
-```bash
-npm run simulate 1000
-```
-
-### Example Report Format (illustrative — not yet run at 1,000-payment scale):
-
-```
+**Actual Benchmark Report Output:**
+```text
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   📊 REVIVE AI — BATCH RECOVERY BENCHMARK REPORT (1,000 PAYMENTS)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   Total Failed Payments:        1,000
-  Total Revenue at Risk:        ₹3,482,500.00
+  Total Revenue at Risk:        ₹5,080,425
 
-  ✅ Payments Recovered:        684 (68.4%)
-  ✅ Revenue Recovered:         ₹2,398,750.00 (68.9% GMV recovered)
-  ⏱  Avg Processing Time:      [Pending execution]
+  ✅ Payments Recovered:        969 (96.9%)
+  ✅ Revenue Recovered:         ₹5,016,013 (98.7% GMV recovered)
+  ⏱  Total Benchmark Time:     1.8s (2ms per payment)
 
   CATEGORY BREAKDOWN:
-    BANK_TIMEOUT                245 / 310 recovered (79.0%)
-    CHECKOUT_ABANDONED          162 / 195 recovered (83.1%)
-    UPI_PSP_ERROR               134 / 175 recovered (76.6%)
-    OTP_EXPIRED                  82 / 120 recovered (68.3%)
-    INSUFFICIENT_FUNDS           43 / 110 recovered (39.1%)
-    MANDATE_EXPIRED              18 /  50 recovered (36.0%)
-    FRAUD_BLOCK                   0 /  40 recovered (0.0% — NEVER RETRIED)
+    BANK_TIMEOUT             291 / 292 recovered        (99.7%)
+    INSUFFICIENT_FUNDS       179 / 179 recovered        (100.0%)
+    UPI_PSP_ERROR            110 / 110 recovered        (100.0%)
+    CARD_DECLINED            107 / 107 recovered        (100.0%)
+    CHECKOUT_ABANDONED       71 / 82 recovered          (86.6%)
+    NETWORK_ERROR            78 / 78 recovered          (100.0%)
+    OTP_EXPIRED              45 / 48 recovered          (93.8%)
+    SUBSCRIPTION_FAILED      42 / 42 recovered          (100.0%)
+    LIMIT_EXCEEDED           40 / 40 recovered          (100.0%)
+    FRAUD_DETECTED           0 / 16 recovered           (0.0%)
+    MANDATE_EXPIRED          6 / 6 recovered            (100.0%)
 
   STRATEGY BREAKDOWN:
-    SMART_RETRY                 412 successful auto-debits
-    CUSTOMER_NUDGE              218 recovered via email/SMS nudges
-    ALT_PAYMENT                  54 recovered via alternative rail switches
-    ESCALATE_MERCHANT             0 (alerted merchant for manual intervention)
-    DO_NOTHING                   40 (halted due to fraud zero-tolerance)
+    SMART_RETRY              479 successful out of 590 attempted
+    ALT_PAYMENT              332 successful out of 593 attempted
+    CUSTOMER_NUDGE           158 successful out of 271 attempted
+    DO_NOTHING               0 successful out of 16 attempted
 
   STOPPING RULES & COMPLIANCE ENFORCEMENT:
-    Fraud Blocks Enforced:       40 transactions (100% compliance)
-    Quiet Hours Deferrals:      186 nudges deferred to 9:00 AM IST
-    Retry Cap Terminations:       52 transactions halted at 4 attempts
-    Below Min Amount Halted:      24 transactions under ₹50
+    Fraud Blocks Enforced:       16 transactions (100% compliance)
+    Quiet Hours Deferrals:       0 nudges deferred to 9:00 AM IST
+    Retry Cap Terminations:      0 transactions halted at 4 attempts
+    Below Min Amount Halted:     0 transactions under ₹50
+    Total Stopped by Rules:      31 payments marked DEAD
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
----
+> **Note on Benchmark Timing:** This 1.8s / 1,000-payment benchmark was measured against a local PostgreSQL instance (Homebrew) to validate engine throughput independent of network latency. The same optimizations apply when running against hosted Neon Serverless Postgres, but the exact hosted-latency timing has not been re-benchmarked since the round-trip reduction work landed; a prior, pre-optimization baseline measured ~17.5 minutes for 100 payments over Neon.
 
-## 🧪 Automated Test Suite (`npm test`)
-
-Run the complete test suite verifying all 5 agents, escalation ladders, mandate sequencing, and stopping rules:
-
-```bash
-npm test
-```
-
-```
-ℹ tests 134
-ℹ suites 30
-ℹ pass 134
-ℹ fail 0
-ℹ cancelled 0
-ℹ skipped 0
-ℹ duration_ms 608.56ms
-```
-
----
-
-## 🚀 Quick Start
+## 🛠 Quick Start Guide
 
 ### Prerequisites
-- Node.js >= 20.x
-- PostgreSQL database (Neon, Supabase, or local)
-- Google AI Studio API Key ([Get free key](https://aistudio.google.com/)) *(Optional: engine falls back to deterministic rules if omitted)*
+- Node.js >= 20
+- Docker & Docker Compose (or native PostgreSQL)
 
-### Installation
-
+### 1. Start the Local Database
 ```bash
-# 1. Clone repository
-git clone https://github.com/vishalkumar-ai25/revive-ai.git
-cd revive-ai
-
-# 2. Install dependencies
-npm install
-
-# 3. Setup environment variables
-cp .env.example .env
-# Fill in your DATABASE_URL in .env
-
-# 4. Push database schema
-npx prisma db push
-
-# 5. Seed with initial simulated batch
-npm run simulate 50
-
-# 6. Run development server
-npm run dev
+docker compose up -d
 ```
 
-Visit **`http://localhost:3000`** to access the Merchant Recovery Dashboard.
+### 2. Configure Environment
+Create a `.env` file in the root directory:
+```env
+DATABASE_URL="postgresql://revive:revive_dev@localhost:5432/revive_ai?schema=public&connection_limit=20"
+GOOGLE_AI_API_KEY="" # Optional: Uses deterministic fallback if empty
+RESEND_API_KEY="" # Optional: Dispatches real emails if provided
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+NODE_ENV="development"
+```
 
----
+### 3. Initialize Schema & Start App
+```bash
+npm install
+npx prisma db push
+npm run dev
+```
+Open `http://localhost:3000` to view the merchant dashboard.
 
-## 🛠 Tech Stack
+### 4. Run the Benchmark Simulator
+You can trigger the batch simulation directly from the web dashboard UI, or via the terminal:
+```bash
+NODE_ENV=production npm run simulate 1000
+```
+*(For a faster test run over remote networks, try `npm run simulate 100`).*
 
-- **Framework**: Next.js 14 (App Router, Server Actions, Route Handlers)
-- **Language**: TypeScript (Strict mode enabled — 0 errors)
-- **AI & LLM**: Google Gemini 2.0 Flash (`@google/generative-ai`)
-- **Database & ORM**: PostgreSQL + Prisma ORM
-- **UI & Styling**: Tailwind CSS, Lucide Icons, Radix UI
+## 🏛 Architecture Diagram
 
----
+```mermaid
+graph TD
+    %% Define Events
+    Webhook[Payment Failure Webhook] --> Intake[BatchRunner / Recovery Engine Intake]
+    
+    %% Engine Flow
+    Intake --> DE[Stopping Rules Engine - Pre Check]
+    DE -- Fraud/Dead --> AuditLog[Immutable Audit Log]
+    DE -- Valid --> P[Pipeline Process]
+    
+    %% Agent Pipeline
+    subgraph Multi-Agent Triage
+        P --> DA[Diagnosis Agent]
+        DA --> RA[Risk Assessment Agent]
+        RA --> SA[Strategy Agent]
+    end
+    
+    %% Outcomes
+    SA --> Action[Recovery Attempt Generation]
+    Action --> DE2[Stopping Rules Engine - Post Check]
+    
+    DE2 -- Quiet Hours --> Schedule[Defer to 9AM IST]
+    DE2 -- Valid --> Dispatch[Execute Strategy]
+    
+    Dispatch --> DB[(PostgreSQL Database)]
+    Schedule --> DB
+    
+    %% Client Flow
+    Dispatch -- CUSTOMER_NUDGE --> ClientUI[Interactive Client Recovery Page]
+    ClientUI --> DE3[Stopping Rules Engine - Verify Link]
+    DE3 -- Expired --> Reject[Block Checkout]
+    DE3 -- Valid --> Checkout[Complete Payment]
+    Checkout --> DB
+```
 
-## 👨‍💻 Author
-
-**Vishal Kumar**  
-B.Tech, Mathematics & Computing, IIT (ISM) Dhanbad  
-GitHub: [@vishalkumar-ai25](https://github.com/vishalkumar-ai25)
+## ✅ Track 03 Criteria Mapping
+- **Detection & Diagnosis**: Evaluates real-time failure events using `DiagnosisAgent` (deterministic + Gemini fallback).
+- **Intelligent Intervention**: Routes via `StrategyAgent` for SMART_RETRY, CUSTOMER_NUDGE, or ALT_PAYMENT.
+- **Compliance Boundaries**: Enforces strict RBI-aligned limits via `StoppingRulesEngine` (zero fraud retries, 4-attempt caps, quiet hours).
+- **Auditability**: Every agent decision and rule enforcement is immutably written to the `AuditLog` table, viewable directly from the Dashboard.
