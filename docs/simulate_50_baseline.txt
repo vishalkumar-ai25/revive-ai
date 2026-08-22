@@ -1,0 +1,221 @@
+
+> revive-ai@0.1.0 simulate
+> tsx --env-file=.env src/lib/simulation/batch-runner.ts 50
+
+
+🚀 Starting batch simulation: 50 payments
+
+  📥 Ingesting 50 failed payment events...
+prisma:error 
+Invalid `prisma.payment.update()` invocation:
+
+
+The table `public.payments` does not exist in the current database.
+  ❌ Error ingesting payment 34: PrismaClientKnownRequestError: 
+Invalid `prisma.payment.update()` invocation:
+
+
+The table `public.payments` does not exist in the current database.
+    at ei.handleRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:228:13)
+    at ei.handleAndLogRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:174:12)
+    at ei.request (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:143:12)
+    at async a (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/getPrismaClient.ts:833:24)
+    at async RecoveryEngine.intake (/Users/vishalkumar/revive-ai/src/lib/engine/recovery-engine.ts:141:5)
+    at async BatchRunner.run (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:72:9)
+    at async main (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:342:3) {
+  code: 'P2021',
+  meta: { modelName: 'Payment', table: 'public.payments' },
+  clientVersion: '6.19.3'
+}
+prisma:error 
+Invalid `prisma.customer.findFirst()` invocation:
+
+
+The table `public.customers` does not exist in the current database.
+  ❌ Error ingesting payment 35: PrismaClientKnownRequestError: 
+Invalid `prisma.customer.findFirst()` invocation:
+
+
+The table `public.customers` does not exist in the current database.
+    at ei.handleRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:228:13)
+    at ei.handleAndLogRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:174:12)
+    at ei.request (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:143:12)
+    at async a (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/getPrismaClient.ts:833:24)
+    at async RecoveryEngine.getOrCreateCustomer (/Users/vishalkumar/revive-ai/src/lib/engine/recovery-engine.ts:663:22)
+    at async RecoveryEngine.intake (/Users/vishalkumar/revive-ai/src/lib/engine/recovery-engine.ts:59:22)
+    at async BatchRunner.run (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:72:9)
+    at async main (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:342:3) {
+  code: 'P2021',
+  meta: { modelName: 'Customer', table: 'public.customers' },
+  clientVersion: '6.19.3'
+}
+prisma:error 
+Invalid `prisma.customer.findFirst()` invocation:
+
+
+The table `public.customers` does not exist in the current database.
+  ❌ Error ingesting payment 36: PrismaClientKnownRequestError: 
+Invalid `prisma.customer.findFirst()` invocation:
+
+
+The table `public.customers` does not exist in the current database.
+    at ei.handleRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:228:13)
+    at ei.handleAndLogRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:174:12)
+    at ei.request (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:143:12)
+    at async a (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/getPrismaClient.ts:833:24)
+    at async RecoveryEngine.getOrCreateCustomer (/Users/vishalkumar/revive-ai/src/lib/engine/recovery-engine.ts:663:22)
+    at async RecoveryEngine.intake (/Users/vishalkumar/revive-ai/src/lib/engine/recovery-engine.ts:59:22)
+    at async BatchRunner.run (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:72:9)
+    at async main (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:342:3) {
+  code: 'P2021',
+  meta: { modelName: 'Customer', table: 'public.customers' },
+  clientVersion: '6.19.3'
+}
+prisma:error 
+Invalid `prisma.customer.findFirst()` invocation:
+
+
+The table `public.customers` does not exist in the current database.
+  ❌ Error ingesting payment 37: PrismaClientKnownRequestError: 
+Invalid `prisma.customer.findFirst()` invocation:
+
+
+The table `public.customers` does not exist in the current database.
+    at ei.handleRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:228:13)
+    at ei.handleAndLogRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:174:12)
+    at ei.request (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:143:12)
+    at async a (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/getPrismaClient.ts:833:24)
+    at async RecoveryEngine.getOrCreateCustomer (/Users/vishalkumar/revive-ai/src/lib/engine/recovery-engine.ts:663:22)
+    at async RecoveryEngine.intake (/Users/vishalkumar/revive-ai/src/lib/engine/recovery-engine.ts:59:22)
+    at async BatchRunner.run (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:72:9)
+    at async main (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:342:3) {
+  code: 'P2021',
+  meta: { modelName: 'Customer', table: 'public.customers' },
+  clientVersion: '6.19.3'
+}
+prisma:error 
+Invalid `prisma.customer.findFirst()` invocation:
+
+
+The table `public.customers` does not exist in the current database.
+  ❌ Error ingesting payment 38: PrismaClientKnownRequestError: 
+Invalid `prisma.customer.findFirst()` invocation:
+
+
+The table `public.customers` does not exist in the current database.
+    at ei.handleRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:228:13)
+    at ei.handleAndLogRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:174:12)
+    at ei.request (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:143:12)
+    at async a (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/getPrismaClient.ts:833:24)
+    at async RecoveryEngine.getOrCreateCustomer (/Users/vishalkumar/revive-ai/src/lib/engine/recovery-engine.ts:663:22)
+    at async RecoveryEngine.intake (/Users/vishalkumar/revive-ai/src/lib/engine/recovery-engine.ts:59:22)
+    at async BatchRunner.run (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:72:9)
+    at async main (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:342:3) {
+  code: 'P2021',
+  meta: { modelName: 'Customer', table: 'public.customers' },
+  clientVersion: '6.19.3'
+}
+prisma:error 
+Invalid `prisma.customer.findFirst()` invocation:
+
+
+The table `public.customers` does not exist in the current database.
+  ❌ Error ingesting payment 39: PrismaClientKnownRequestError: 
+Invalid `prisma.customer.findFirst()` invocation:
+
+
+The table `public.customers` does not exist in the current database.
+    at ei.handleRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:228:13)
+    at ei.handleAndLogRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:174:12)
+    at ei.request (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:143:12)
+    at async a (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/getPrismaClient.ts:833:24)
+    at async RecoveryEngine.getOrCreateCustomer (/Users/vishalkumar/revive-ai/src/lib/engine/recovery-engine.ts:663:22)
+    at async RecoveryEngine.intake (/Users/vishalkumar/revive-ai/src/lib/engine/recovery-engine.ts:59:22)
+    at async BatchRunner.run (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:72:9)
+    at async main (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:342:3) {
+  code: 'P2021',
+  meta: { modelName: 'Customer', table: 'public.customers' },
+  clientVersion: '6.19.3'
+}
+prisma:error 
+Invalid `prisma.customer.findFirst()` invocation:
+
+
+The table `public.customers` does not exist in the current database.
+  ❌ Error ingesting payment 40: PrismaClientKnownRequestError: 
+Invalid `prisma.customer.findFirst()` invocation:
+
+
+The table `public.customers` does not exist in the current database.
+    at ei.handleRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:228:13)
+    at ei.handleAndLogRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:174:12)
+    at ei.request (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:143:12)
+    at async a (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/getPrismaClient.ts:833:24)
+    at async RecoveryEngine.getOrCreateCustomer (/Users/vishalkumar/revive-ai/src/lib/engine/recovery-engine.ts:663:22)
+    at async RecoveryEngine.intake (/Users/vishalkumar/revive-ai/src/lib/engine/recovery-engine.ts:59:22)
+    at async BatchRunner.run (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:72:9)
+    at async main (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:342:3) {
+  code: 'P2021',
+  meta: { modelName: 'Customer', table: 'public.customers' },
+  clientVersion: '6.19.3'
+}
+prisma:error 
+Invalid `prisma.customer.findFirst()` invocation:
+
+
+The table `public.customers` does not exist in the current database.
+  ❌ Error ingesting payment 41: PrismaClientKnownRequestError: 
+Invalid `prisma.customer.findFirst()` invocation:
+
+
+The table `public.customers` does not exist in the current database.
+    at ei.handleRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:228:13)
+    at ei.handleAndLogRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:174:12)
+    at ei.request (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:143:12)
+    at async a (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/getPrismaClient.ts:833:24)
+    at async RecoveryEngine.getOrCreateCustomer (/Users/vishalkumar/revive-ai/src/lib/engine/recovery-engine.ts:663:22)
+    at async RecoveryEngine.intake (/Users/vishalkumar/revive-ai/src/lib/engine/recovery-engine.ts:59:22)
+    at async BatchRunner.run (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:72:9)
+    at async main (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:342:3) {
+  code: 'P2021',
+  meta: { modelName: 'Customer', table: 'public.customers' },
+  clientVersion: '6.19.3'
+}
+  📊 Ingested 50/50 payments
+  ⏳ Progressing virtual time over up to 169 hours...
+  ✨ All recovery attempts resolved at T+22h
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  📊 REVIVE AI — BATCH RECOVERY BENCHMARK REPORT (9 PAYMENTS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Total Failed Payments:        9
+  Total Revenue at Risk:        ₹33,501
+
+  ✅ Payments Recovered:        9 (100%)
+  ✅ Revenue Recovered:         ₹33,501 (100.0% GMV recovered)
+  ⏱  Total Benchmark Time:     1081.9s (120210ms per payment)
+
+  CATEGORY BREAKDOWN:
+    BANK_TIMEOUT             2 / 2 recovered            (100.0%)
+    LIMIT_EXCEEDED           2 / 2 recovered            (100.0%)
+    NETWORK_ERROR            1 / 1 recovered            (100.0%)
+    UPI_PSP_ERROR            1 / 1 recovered            (100.0%)
+    CARD_DECLINED            1 / 1 recovered            (100.0%)
+    INSUFFICIENT_FUNDS       1 / 1 recovered            (100.0%)
+    OTP_EXPIRED              1 / 1 recovered            (100.0%)
+
+  STRATEGY BREAKDOWN:
+    SMART_RETRY              4 successful out of 6 attempted
+    ALT_PAYMENT              4 successful out of 4 attempted
+    CUSTOMER_NUDGE           1 successful out of 1 attempted
+
+  STOPPING RULES & COMPLIANCE ENFORCEMENT:
+    Fraud Blocks Enforced:       0 transactions (100% compliance)
+    Quiet Hours Deferrals:       0 nudges deferred to 9:00 AM IST
+    Retry Cap Terminations:      0 transactions halted at 4 attempts
+    Below Min Amount Halted:     0 transactions under ₹50
+    Total Stopped by Rules:      0 payments marked DEAD
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+

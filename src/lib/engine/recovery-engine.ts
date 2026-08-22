@@ -281,7 +281,16 @@ export class RecoveryEngine {
 
     const results: TickResult[] = [];
 
-    for (const dueAttempt of dueAttempts) {
+    const chunkArray = <T>(arr: T[], size: number): T[][] =>
+      Array.from({ length: Math.ceil(arr.length / size) }, (_v, i) =>
+        arr.slice(i * size, i * size + size)
+      );
+
+    const attemptChunks = chunkArray(dueAttempts, 20);
+
+    for (const chunk of attemptChunks) {
+      await Promise.all(
+        chunk.map(async (dueAttempt) => {
       const payment = dueAttempt.payment;
       const isFraud =
         payment.errorCode === "FRAUD_DETECTED" ||
@@ -333,7 +342,7 @@ export class RecoveryEngine {
           strategy: dueAttempt.strategy,
           outcome: outcome,
         });
-        continue;
+        return;
       }
 
       // Simulate recovery outcome based on probability
@@ -504,10 +513,12 @@ export class RecoveryEngine {
           }
         }
       }
-    }
+    })
+  );
+}
 
-    return results;
-  }
+return results;
+}
 
   /**
    * Compatibility shim: Intake failure then immediately tick at current clock time.

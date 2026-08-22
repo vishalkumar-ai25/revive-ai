@@ -1,0 +1,8 @@
+
+> revive-ai@0.1.0 simulate
+> tsx --env-file=.env src/lib/simulation/batch-runner.ts 50
+
+
+🚀 Starting batch simulation: 50 payments
+
+  📥 Ingesting 50 failed payment events...

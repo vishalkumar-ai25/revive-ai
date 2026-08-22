@@ -1,0 +1,68 @@
+
+> revive-ai@0.1.0 simulate
+> tsx --env-file=.env src/lib/simulation/batch-runner.ts 100
+
+
+🚀 Starting batch simulation: 100 payments
+
+  📥 Ingesting 100 failed payment events...
+prisma:error 
+Invalid `prisma.auditLog.create()` invocation:
+
+
+Can't reach database server at `ep-spring-feather-ayiqmuti-pooler.c-5.us-east-2.aws.neon.tech:5432`
+
+Please make sure your database server is running at `ep-spring-feather-ayiqmuti-pooler.c-5.us-east-2.aws.neon.tech:5432`.
+[AuditLogger] Failed to write audit log: PrismaClientKnownRequestError: 
+Invalid `prisma.auditLog.create()` invocation:
+
+
+Can't reach database server at `ep-spring-feather-ayiqmuti-pooler.c-5.us-east-2.aws.neon.tech:5432`
+
+Please make sure your database server is running at `ep-spring-feather-ayiqmuti-pooler.c-5.us-east-2.aws.neon.tech:5432`.
+    at ei.handleRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:228:13)
+    at ei.handleAndLogRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:174:12)
+    at ei.request (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:143:12)
+    at async a (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/getPrismaClient.ts:833:24)
+    at async AuditLogger.log (/Users/vishalkumar/revive-ai/src/lib/audit/logger.ts:56:7)
+    at async RecoveryPipeline.process (/Users/vishalkumar/revive-ai/src/lib/agents/index.ts:74:5)
+    at async RecoveryEngine.intake (/Users/vishalkumar/revive-ai/src/lib/engine/recovery-engine.ts:154:28)
+    at async BatchRunner.run (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:72:9)
+    at async main (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:342:3) {
+  code: 'P1001',
+  meta: {
+    modelName: 'AuditLog',
+    database_location: 'ep-spring-feather-ayiqmuti-pooler.c-5.us-east-2.aws.neon.tech:5432'
+  },
+  clientVersion: '6.19.3'
+}
+  📊 Ingested 100/100 payments
+  ⏳ Progressing virtual time over up to 169 hours...
+prisma:error 
+Invalid `prisma.recoveryAttempt.update()` invocation:
+
+
+Can't reach database server at `ep-spring-feather-ayiqmuti-pooler.c-5.us-east-2.aws.neon.tech:5432`
+
+Please make sure your database server is running at `ep-spring-feather-ayiqmuti-pooler.c-5.us-east-2.aws.neon.tech:5432`.
+PrismaClientKnownRequestError: 
+Invalid `prisma.recoveryAttempt.update()` invocation:
+
+
+Can't reach database server at `ep-spring-feather-ayiqmuti-pooler.c-5.us-east-2.aws.neon.tech:5432`
+
+Please make sure your database server is running at `ep-spring-feather-ayiqmuti-pooler.c-5.us-east-2.aws.neon.tech:5432`.
+    at ei.handleRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:228:13)
+    at ei.handleAndLogRequestError (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:174:12)
+    at ei.request (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/RequestHandler.ts:143:12)
+    at async a (/Users/vishalkumar/revive-ai/node_modules/@prisma/client/src/runtime/getPrismaClient.ts:833:24)
+    at async RecoveryEngine.tick (/Users/vishalkumar/revive-ai/src/lib/engine/recovery-engine.ts:351:7)
+    at async BatchRunner.run (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:93:7)
+    at async main (/Users/vishalkumar/revive-ai/src/lib/simulation/batch-runner.ts:342:3) {
+  code: 'P1001',
+  meta: {
+    modelName: 'RecoveryAttempt',
+    database_location: 'ep-spring-feather-ayiqmuti-pooler.c-5.us-east-2.aws.neon.tech:5432'
+  },
+  clientVersion: '6.19.3'
+}

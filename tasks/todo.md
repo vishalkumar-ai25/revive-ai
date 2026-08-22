@@ -137,13 +137,13 @@
 
 ## Phase 5: Batch Simulation Benchmark (1,000 Payments)
 
-- [ ] **Task 5.1: Refine Synthetic Payment Generator**
+- [x] **Task 5.1: Refine Synthetic Payment Generator**
   - Description: Update `payment-generator.ts` with complete Indian failure distributions across all 12 categories, recurring mandates, and banks.
   - Acceptance: Generates statistically representative datasets with realistic metadata.
   - Verify: Batch generation test.
   - Files: `src/lib/simulation/payment-generator.ts`.
 
-- [ ] **Task 5.2: Multi-Attempt Virtual Timeline Batch Runner**
+- [x] **Task 5.2: Multi-Attempt Virtual Timeline Batch Runner**
   - Description: Update `batch-runner.ts` to simulate full multi-attempt lifecycle with virtual time progression and print the comprehensive 4-part aggregate report.
   - Acceptance: 1,000-payment batch runs in $<5$s and outputs exact money recovered and unrecoverable reasons.
   - Verify: Run `npm run simulate 1000`.
@@ -153,19 +153,19 @@
 
 ## Phase 6: Demo Polish (Client Recovery Page & Resend Dispatcher)
 
-- [ ] **Task 6.1: Build Interactive Recovery Page with Guardrails**
+- [x] **Task 6.1: Build Interactive Recovery Page with Guardrails**
   - Description: Create `src/app/recover/[paymentId]/page.tsx` displaying order details, alternative payment suggestions, and a "Pay Now" action.
   - Acceptance: Page strictly re-evaluates `StoppingRulesEngine.evaluate()`; rejects dead/fraud payments; captures valid payments.
   - Verify: Navigate to `/recover/[paymentId]` and test pay flow.
   - Files: `src/app/recover/[paymentId]/page.tsx`, `src/app/api/recover/[paymentId]/route.ts`.
 
-- [ ] **Task 6.2: Defensively Wired Resend Email Dispatcher**
+- [x] **Task 6.2: Defensively Wired Resend Email Dispatcher**
   - Description: Create `src/lib/notifications/email-dispatcher.ts` sending real HTML recovery emails if `RESEND_API_KEY` is present, or silently logging to audit trail if unset.
   - Acceptance: Non-blocking execution without crashing when key is missing.
   - Verify: Test dispatch with and without key.
   - Files: `src/lib/notifications/email-dispatcher.ts`.
 
-- [ ] **Task 6.3: Polish Dashboard UI & Filter Tabs**
+- [x] **Task 6.3: Polish Dashboard UI & Filter Tabs**
   - Description: Polish `MetricCards.tsx`, add category filter tabs to `LiveFeed.tsx` (All, UPI/Cards, Checkout Drop-off, Subscriptions, Mandates), and refine `AuditModal.tsx`.
   - Acceptance: Clean responsive UI with instant filtering and rich audit modal.
   - Verify: Visual inspection on `localhost:3000`.

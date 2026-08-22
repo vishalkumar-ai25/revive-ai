@@ -64,18 +64,31 @@ export class BatchRunner {
     // 1. Generate all synthetic events anchored at t0
     const events = this.generator.generateBatch(count);
 
-    // 2. Ingest all events (creates initial PENDING recovery attempts)
+    // 2. Ingest all events (Concurrent in chunks to avoid pool exhaustion)
     console.info(`  📥 Ingesting ${count} failed payment events...`);
-    for (let i = 0; i < events.length; i++) {
-      const event = events[i]!;
-      try {
-        await this.engine.intake(event);
-      } catch (error) {
-        console.error(`  ❌ Error ingesting payment ${i + 1}:`, error);
-      }
+    
+    const chunkArray = <T>(arr: T[], size: number): T[][] =>
+      Array.from({ length: Math.ceil(arr.length / size) }, (_v, i) =>
+        arr.slice(i * size, i * size + size)
+      );
 
-      if ((i + 1) % 100 === 0 || i === events.length - 1) {
-        console.info(`  📊 Ingested ${i + 1}/${count} payments`);
+    const CONCURRENCY_LIMIT = 20; // Match Neon connection pool
+    const eventChunks = chunkArray(events, CONCURRENCY_LIMIT);
+    
+    let ingestedCount = 0;
+    for (const chunk of eventChunks) {
+      await Promise.all(
+        chunk.map(async (event) => {
+          try {
+            await this.engine.intake(event);
+            ingestedCount++;
+          } catch (error) {
+            console.error(`  ❌ Error ingesting payment:`, error);
+          }
+        })
+      );
+      if (ingestedCount % 100 === 0 || ingestedCount === events.length) {
+        console.info(`  📊 Ingested ${ingestedCount}/${count} payments`);
       }
     }
 

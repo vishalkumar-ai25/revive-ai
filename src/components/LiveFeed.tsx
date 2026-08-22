@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { CheckCircle2, XCircle, Clock, AlertOctagon, Eye } from "lucide-react";
 
 export interface PaymentItem {
@@ -25,7 +25,11 @@ export interface PaymentItem {
     outcome: string;
     attemptNumber: number;
   }>;
+  isRecurring: boolean;
+  mandateId: string | null;
 }
+
+type FilterTab = "All" | "UPI/Cards" | "Checkout Drop-off" | "Subscriptions" | "Mandates";
 
 export function LiveFeed({
   payments,
@@ -34,6 +38,17 @@ export function LiveFeed({
   payments: PaymentItem[];
   onSelectPayment: (id: string) => void;
 }) {
+  const [activeTab, setActiveTab] = useState<FilterTab>("All");
+
+  const filteredPayments = payments.filter((p) => {
+    if (activeTab === "All") return true;
+    if (activeTab === "UPI/Cards") return p.method === "UPI" || p.method === "CARD";
+    if (activeTab === "Checkout Drop-off") return p.failureEvent?.category === "CHECKOUT_ABANDONED";
+    if (activeTab === "Subscriptions") return p.isRecurring && !p.mandateId;
+    if (activeTab === "Mandates") return p.isRecurring && p.mandateId !== null;
+    return true;
+  });
+
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 shadow-xl backdrop-blur-sm">
       <div className="flex items-center justify-between border-b border-slate-800 pb-4">
@@ -49,13 +64,29 @@ export function LiveFeed({
         </span>
       </div>
 
+      <div className="flex gap-2 overflow-x-auto pb-2 mt-4 no-scrollbar">
+        {(["All", "UPI/Cards", "Checkout Drop-off", "Subscriptions", "Mandates"] as FilterTab[]).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`whitespace-nowrap px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+              activeTab === tab
+                ? "bg-indigo-600 text-white"
+                : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
       <div className="mt-4 divide-y divide-slate-800/60 overflow-hidden">
-        {payments.length === 0 ? (
+        {filteredPayments.length === 0 ? (
           <div className="py-12 text-center text-sm text-slate-500">
-            No payment events recorded yet. Run a simulation batch or send a webhook event.
+            No payment events recorded for this category yet.
           </div>
         ) : (
-          payments.map((p) => {
+          filteredPayments.map((p) => {
             const latestAttempt = p.recoveryAttempts[0];
             const prob = p.failureEvent?.recoveryProbability
               ? (p.failureEvent.recoveryProbability * 100).toFixed(0)
