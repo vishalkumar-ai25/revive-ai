@@ -173,15 +173,14 @@
 
 ---
 
-## Phase 7: Review, Documentation & Ship
+## Phase 7: Quality Gates & Handover
 
-- [ ] **Task 7.1: Update README.md & System Documentation**
-  - Description: Update `README.md` with accurate architecture diagrams, quick-start guide, Docker commands, and Track 03 criteria mapping.
-  - Acceptance: 100% alignment between README, spec, and codebase.
-  - Verify: Markdown preview and link validation.
-  - Files: `README.md`.
+- [x] **Task 7.1: Final Quality Verification (Typecheck, Lint, Tests)**
+  - Description: Run `npm test`, `npm run typecheck`, and `npm run lint`.
+  - Acceptance: 0 errors, clean output.
+  - Verify: `npm test && npm run typecheck && npm run lint`.
 
-- [ ] **Task 7.2: Final Quality Verification & Git Ship**
-  - Description: Run `npm test`, `npm run typecheck`, and `npm run lint`. Commit clean codebase and push to GitHub `main`.
-  - Acceptance: 0 errors, clean git status, pushed to GitHub.
-  - Verify: `npm test && npm run typecheck && npm run lint && git status`.
+- [x] **Task 7.2: Ship to Git & Final Documentation**
+  - Description: Update `README.md` and commit final code to GitHub `main`.
+  - Acceptance: Clean git status, pushed to GitHub.
+  - Verify: `git status && git push`.
