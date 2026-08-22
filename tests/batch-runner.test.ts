@@ -12,7 +12,6 @@ import { PaymentGenerator } from "../src/lib/simulation/payment-generator.js";
 import { StoppingRulesEngine } from "../src/lib/engine/stopping-rules.js";
 import { VirtualClock } from "../src/lib/time/clock.js";
 import { SIMULATION } from "../src/lib/constants.js";
-import type { PaymentFailureEvent } from "../src/lib/types.js";
 
 // ---------------------------------------------------------------------------
 // Bug A Regression: Fraud payments must never be retried
