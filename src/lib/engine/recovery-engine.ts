@@ -12,7 +12,6 @@
 
 import { db } from "@/lib/db";
 import { RecoveryPipeline } from "@/lib/agents";
-import { AuditLogger } from "@/lib/audit/logger";
 import { StoppingRulesEngine } from "./stopping-rules";
 import type { CustomerHistory, DiagnosisResult, PaymentFailureEvent } from "@/lib/types";
 import { type Clock, SystemClock } from "@/lib/time/clock";
@@ -35,14 +34,12 @@ export interface TickResult {
 export class RecoveryEngine {
   private pipeline: RecoveryPipeline;
   private stoppingRules: StoppingRulesEngine;
-  private auditLogger: AuditLogger;
   private clock: Clock;
 
   constructor(clock: Clock = new SystemClock()) {
     this.clock = clock;
     this.pipeline = new RecoveryPipeline(clock);
     this.stoppingRules = new StoppingRulesEngine(clock);
-    this.auditLogger = new AuditLogger();
   }
 
   /**
@@ -273,6 +270,9 @@ export class RecoveryEngine {
           include: {
             customer: true,
             failureEvent: true,
+            recoveryAttempts: {
+              select: { attemptNumber: true, strategy: true, outcome: true },
+            },
           },
         },
       },
@@ -287,10 +287,7 @@ export class RecoveryEngine {
         payment.errorCode === "FRAUD_DETECTED" ||
         payment.errorCode === "SUSPECTED_FRAUD";
 
-      const previousAttempts = await db.recoveryAttempt.findMany({
-        where: { paymentId: payment.id },
-        select: { attemptNumber: true, strategy: true, outcome: true },
-      });
+      const previousAttempts = payment.recoveryAttempts;
 
       const event: PaymentFailureEvent = {
         externalId: payment.externalId,
@@ -348,30 +345,29 @@ export class RecoveryEngine {
       );
       const outcome = isSimulatedSuccess ? "SUCCESS" : "FAILED";
 
-      await db.recoveryAttempt.update({
-        where: { id: dueAttempt.id },
-        data: {
-          outcome,
-          executedAt: asOf,
-        },
-      });
-
       if (isSimulatedSuccess) {
         await db.payment.update({
           where: { id: payment.id },
-          data: { status: "RECOVERED" },
-        });
-
-        await this.auditLogger.log({
-          paymentId: payment.id,
-          paymentExternalId: payment.externalId,
-          agentName: "RecoveryEngine",
-          action: "PAYMENT_RECOVERED",
-          reasoning: `Strategy: ${dueAttempt.strategy} | Attempt #${dueAttempt.attemptNumber} | Outcome: SUCCESS`,
-          metadata: {
-            strategy: dueAttempt.strategy,
-            attemptNumber: dueAttempt.attemptNumber,
-            outcome: "SUCCESS",
+          data: {
+            status: "RECOVERED",
+            recoveryAttempts: {
+              update: {
+                where: { id: dueAttempt.id },
+                data: { outcome, executedAt: asOf },
+              },
+            },
+            auditLogs: {
+              create: {
+                agentName: "RecoveryEngine",
+                action: "PAYMENT_RECOVERED",
+                reasoning: `Strategy: ${dueAttempt.strategy} | Attempt #${dueAttempt.attemptNumber} | Outcome: SUCCESS`,
+                metadata: {
+                  strategy: dueAttempt.strategy,
+                  attemptNumber: dueAttempt.attemptNumber,
+                  outcome: "SUCCESS",
+                },
+              },
+            },
           },
         });
 
@@ -383,16 +379,27 @@ export class RecoveryEngine {
         });
       } else {
         // Failed attempt — keep payment at RECOVERY_IN_PROGRESS (do not regress to FAILED)
-        await this.auditLogger.log({
-          paymentId: payment.id,
-          paymentExternalId: payment.externalId,
-          agentName: "RecoveryEngine",
-          action: "RECOVERY_ATTEMPT_FAILED",
-          reasoning: `Strategy: ${dueAttempt.strategy} | Attempt #${dueAttempt.attemptNumber} | Outcome: FAILED`,
-          metadata: {
-            strategy: dueAttempt.strategy,
-            attemptNumber: dueAttempt.attemptNumber,
-            outcome: "FAILED",
+        await db.payment.update({
+          where: { id: payment.id },
+          data: {
+            recoveryAttempts: {
+              update: {
+                where: { id: dueAttempt.id },
+                data: { outcome, executedAt: asOf },
+              },
+            },
+            auditLogs: {
+              create: {
+                agentName: "RecoveryEngine",
+                action: "RECOVERY_ATTEMPT_FAILED",
+                reasoning: `Strategy: ${dueAttempt.strategy} | Attempt #${dueAttempt.attemptNumber} | Outcome: FAILED`,
+                metadata: {
+                  strategy: dueAttempt.strategy,
+                  attemptNumber: dueAttempt.attemptNumber,
+                  outcome: "FAILED",
+                },
+              },
+            },
           },
         });
 
@@ -404,10 +411,11 @@ export class RecoveryEngine {
         });
 
         // Re-evaluate stopping rules for subsequent attempt
-        const updatedPreviousAttempts = await db.recoveryAttempt.findMany({
-          where: { paymentId: payment.id },
-          select: { attemptNumber: true, strategy: true, outcome: true },
-        });
+        const updatedPreviousAttempts = previousAttempts.map(a => 
+          a.attemptNumber === dueAttempt.attemptNumber 
+            ? { ...a, outcome: "FAILED" as const } 
+            : a
+        );
 
         const nextStopDecision = this.stoppingRules.evaluate(
           event,
@@ -418,16 +426,17 @@ export class RecoveryEngine {
         if (nextStopDecision.shouldStop) {
           await db.payment.update({
             where: { id: payment.id },
-            data: { status: "DEAD" },
-          });
-
-          await this.auditLogger.log({
-            paymentId: payment.id,
-            paymentExternalId: payment.externalId,
-            agentName: "StoppingRulesEngine",
-            action: "RECOVERY_STOPPED",
-            reasoning: nextStopDecision.reason,
-            metadata: { rule: nextStopDecision.rule },
+            data: { 
+              status: "DEAD",
+              auditLogs: {
+                create: {
+                  agentName: "StoppingRulesEngine",
+                  action: "RECOVERY_STOPPED",
+                  reasoning: nextStopDecision.reason,
+                  metadata: { rule: nextStopDecision.rule },
+                },
+              },
+            },
           });
         } else {
           // Reconstruct diagnosis from failure event (skips fresh Gemini LLM call)
