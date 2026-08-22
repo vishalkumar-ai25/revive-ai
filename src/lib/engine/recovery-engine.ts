@@ -74,11 +74,13 @@ export class RecoveryEngine {
         isRecurring: event.isRecurring,
         subscriptionId: event.subscriptionId,
         mandateId: event.mandateId,
+        failedAt: event.timestamp,
       },
       update: {
         status: "FAILED",
         errorCode: event.errorCode,
         errorDescription: event.errorDescription,
+        failedAt: event.timestamp,
       },
     });
 
@@ -370,7 +372,7 @@ export class RecoveryEngine {
         isRecurring: payment.isRecurring,
         subscriptionId: payment.subscriptionId,
         mandateId: payment.mandateId,
-        timestamp: payment.createdAt,
+        timestamp: payment.failedAt,
       };
 
       // Check stopping rules before executing this attempt
