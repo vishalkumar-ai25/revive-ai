@@ -16,7 +16,7 @@
 import { db } from "@/lib/db";
 import { RecoveryEngine } from "@/lib/engine/recovery-engine";
 import { PaymentGenerator } from "./payment-generator";
-import { SIMULATION, STOPPING_RULES } from "@/lib/constants";
+import { SIMULATION, STOPPING_RULES, MANDATE_RULES } from "@/lib/constants";
 import { type Clock, VirtualClock } from "@/lib/time/clock";
 import type { Payment, RecoveryAttempt } from "@prisma/client";
 
@@ -75,9 +75,12 @@ export class BatchRunner {
       }
     }
 
-    // 3. Fixed 1-hour tick loop advancing VirtualClock across 72h window (+1h buffer)
-    const maxTicks = STOPPING_RULES.MAX_RECOVERY_WINDOW_HOURS + 1; // 73 ticks
-    console.info(`  ⏳ Progressing virtual time over ${maxTicks} hours...`);
+    // 3. Fixed 1-hour tick loop advancing VirtualClock across recovery window
+    //    Uses max(standard 72h, mandate 168h) + 1h buffer so mandate retries at
+    //    T+96h and T+144h are actually executed instead of left as PENDING.
+    const maxTicks =
+      Math.max(STOPPING_RULES.MAX_RECOVERY_WINDOW_HOURS, MANDATE_RULES.WINDOW_HOURS) + 1; // 169 ticks
+    console.info(`  ⏳ Progressing virtual time over up to ${maxTicks} hours...`);
 
     for (let tickIndex = 0; tickIndex < maxTicks; tickIndex++) {
       this.clock.advanceHours(1);
@@ -98,6 +101,13 @@ export class BatchRunner {
           `  ✨ All recovery attempts resolved at T+${tickIndex + 1}h`,
         );
         break;
+      }
+
+      // Log progress every 24 virtual hours
+      if ((tickIndex + 1) % 24 === 0) {
+        console.info(
+          `  ⏳ T+${tickIndex + 1}h — ${pendingCount} attempts still pending`,
+        );
       }
     }
 
