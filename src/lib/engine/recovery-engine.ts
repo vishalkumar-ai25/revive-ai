@@ -165,109 +165,43 @@ export class RecoveryEngine {
     );
 
     if (postStrategyStopDecision.shouldStop) {
-      if (postStrategyStopDecision.rule === "QUIET_HOURS") {
-        // Quiet hours deferral: keep payment alive, reschedule initial outreach to 9:00 AM IST
-        const next9Am = this.getNext9AmIst(this.clock.now());
-
-        // Step 4: Persist failure event
-        await db.failureEvent.upsert({
-          where: { paymentId: payment.id },
-          create: {
-            paymentId: payment.id,
-            category: pipelineResult.diagnosis.category,
-            rootCause: pipelineResult.diagnosis.rootCause,
-            diagnosisConfidence: pipelineResult.diagnosis.confidence,
-            isRecoverable: pipelineResult.diagnosis.isRecoverable,
-            recoveryProbability:
-              pipelineResult.riskAssessment.recoveryProbability,
-          },
-          update: {
-            category: pipelineResult.diagnosis.category,
-            rootCause: pipelineResult.diagnosis.rootCause,
-            diagnosisConfidence: pipelineResult.diagnosis.confidence,
-            isRecoverable: pipelineResult.diagnosis.isRecoverable,
-            recoveryProbability:
-              pipelineResult.riskAssessment.recoveryProbability,
-          },
-        });
-
-        // Step 5: Create initial recovery attempt as PENDING at 9:00 AM IST
-        const attemptNumber = previousAttempts.length + 1;
-        const { strategy, executionParams } = pipelineResult.strategy;
-
-        await db.recoveryAttempt.create({
-          data: {
-            paymentId: payment.id,
-            attemptNumber,
-            strategy,
-            escalationLevel: executionParams.escalationLevel,
-            outcome: "PENDING",
-            scheduledAt: next9Am,
-            executedAt: null,
-            channel: executionParams.channel,
-            messageContent: executionParams.messageContent,
-          },
-        });
-
-        await this.auditLogger.log({
+      // Step 4: Persist failure event (must happen even if we stop/defer)
+      await db.failureEvent.upsert({
+        where: { paymentId: payment.id },
+        create: {
           paymentId: payment.id,
-          paymentExternalId: event.externalId,
-          agentName: "StoppingRulesEngine",
-          action: "OUTREACH_DEFERRED",
-          reasoning: `Quiet hours active (${postStrategyStopDecision.reason}). Customer outreach deferred to 9:00 AM IST.`,
-          metadata: {
-            rule: "QUIET_HOURS",
-            deferredUntil: next9Am,
-            intendedStrategy: pipelineResult.strategy.strategy,
-          },
-        });
-
-        return {
-          paymentId: payment.id,
-          strategy: pipelineResult.strategy.strategy,
-          outcome: "PENDING",
-          processingTimeMs: pipelineResult.processingTimeMs,
-        };
-      }
-
-      await db.payment.update({
-        where: { id: payment.id },
-        data: { status: "DEAD" },
-      });
-
-      await db.recoveryAttempt.create({
-        data: {
-          paymentId: payment.id,
-          attemptNumber: previousAttempts.length + 1,
-          strategy: pipelineResult.strategy.strategy,
-          escalationLevel:
-            pipelineResult.strategy.executionParams.escalationLevel ??
-            ("LEVEL_5_DEAD" as EscalationLevel),
-          outcome: "STOPPED_BY_RULE",
-          stoppedByRule: postStrategyStopDecision.rule,
-          scheduledAt: this.clock.now(),
-          executedAt: this.clock.now(),
-          channel: pipelineResult.strategy.executionParams.channel,
-          messageContent: postStrategyStopDecision.reason,
+          category: pipelineResult.diagnosis.category,
+          rootCause: pipelineResult.diagnosis.rootCause,
+          diagnosisConfidence: pipelineResult.diagnosis.confidence,
+          isRecoverable: pipelineResult.diagnosis.isRecoverable,
+          recoveryProbability: pipelineResult.riskAssessment.recoveryProbability,
+        },
+        update: {
+          category: pipelineResult.diagnosis.category,
+          rootCause: pipelineResult.diagnosis.rootCause,
+          diagnosisConfidence: pipelineResult.diagnosis.confidence,
+          isRecoverable: pipelineResult.diagnosis.isRecoverable,
+          recoveryProbability: pipelineResult.riskAssessment.recoveryProbability,
         },
       });
 
-      await this.auditLogger.log({
-        paymentId: payment.id,
-        paymentExternalId: event.externalId,
-        agentName: "StoppingRulesEngine",
-        action: "RECOVERY_STOPPED",
-        reasoning: postStrategyStopDecision.reason,
-        metadata: {
-          rule: postStrategyStopDecision.rule,
-          intendedStrategy: pipelineResult.strategy.strategy,
-        },
-      });
+      const outcome = await this.handleStopDecision(
+        postStrategyStopDecision,
+        payment.id,
+        event.externalId,
+        null, // No attempt row exists yet
+        this.clock.now(),
+        previousAttempts.length + 1,
+        pipelineResult.strategy.strategy,
+        pipelineResult.strategy.executionParams.escalationLevel ?? "LEVEL_5_DEAD",
+        pipelineResult.strategy.executionParams.channel ?? null,
+        pipelineResult.strategy.executionParams.messageContent ?? null
+      );
 
       return {
         paymentId: payment.id,
         strategy: pipelineResult.strategy.strategy,
-        outcome: "STOPPED_BY_RULE",
+        outcome: outcome === "DEFERRED" ? "PENDING" : "STOPPED_BY_RULE",
         processingTimeMs: pipelineResult.processingTimeMs,
       };
     }
@@ -384,67 +318,24 @@ export class RecoveryEngine {
       );
 
       if (stopDecision.shouldStop) {
-        if (stopDecision.rule === "QUIET_HOURS") {
-          // Defer attempt to 9:00 AM IST
-          const next9Am = this.getNext9AmIst(asOf);
-
-          await db.recoveryAttempt.update({
-            where: { id: dueAttempt.id },
-            data: {
-              scheduledAt: next9Am,
-            },
-          });
-
-          await this.auditLogger.log({
-            paymentId: payment.id,
-            paymentExternalId: payment.externalId,
-            agentName: "StoppingRulesEngine",
-            action: "OUTREACH_DEFERRED",
-            reasoning: `Quiet hours active (${stopDecision.reason}). Rescheduled outreach to 9:00 AM IST.`,
-            metadata: {
-              rule: "QUIET_HOURS",
-              deferredUntil: next9Am,
-              strategy: dueAttempt.strategy,
-            },
-          });
-
-          results.push({
-            attemptId: dueAttempt.id,
-            paymentId: payment.id,
-            strategy: dueAttempt.strategy,
-            outcome: "DEFERRED",
-          });
-          continue;
-        }
-
-        await db.recoveryAttempt.update({
-          where: { id: dueAttempt.id },
-          data: {
-            outcome: "STOPPED_BY_RULE",
-            stoppedByRule: stopDecision.rule,
-            executedAt: asOf,
-          },
-        });
-
-        await db.payment.update({
-          where: { id: payment.id },
-          data: { status: "DEAD" },
-        });
-
-        await this.auditLogger.log({
-          paymentId: payment.id,
-          paymentExternalId: payment.externalId,
-          agentName: "StoppingRulesEngine",
-          action: "RECOVERY_STOPPED",
-          reasoning: stopDecision.reason,
-          metadata: { rule: stopDecision.rule },
-        });
+        const outcome = await this.handleStopDecision(
+          stopDecision,
+          payment.id,
+          payment.externalId,
+          dueAttempt.id, // Updating the existing PENDING attempt
+          asOf,
+          dueAttempt.attemptNumber,
+          dueAttempt.strategy,
+          dueAttempt.escalationLevel,
+          dueAttempt.channel,
+          dueAttempt.messageContent
+        );
 
         results.push({
           attemptId: dueAttempt.id,
           paymentId: payment.id,
           strategy: dueAttempt.strategy,
-          outcome: "STOPPED_BY_RULE",
+          outcome: outcome,
         });
         continue;
       }
@@ -573,22 +464,18 @@ export class RecoveryEngine {
           );
 
           if (postRetryStopDecision.shouldStop) {
-            await db.payment.update({
-              where: { id: payment.id },
-              data: { status: "DEAD" },
-            });
-
-            await this.auditLogger.log({
-              paymentId: payment.id,
-              paymentExternalId: payment.externalId,
-              agentName: "StoppingRulesEngine",
-              action: "RECOVERY_STOPPED",
-              reasoning: postRetryStopDecision.reason,
-              metadata: {
-                rule: postRetryStopDecision.rule,
-                intendedStrategy: retryPipelineResult.strategy.strategy,
-              },
-            });
+            await this.handleStopDecision(
+              postRetryStopDecision,
+              payment.id,
+              payment.externalId,
+              null, // Create new attempt row
+              asOf,
+              updatedPreviousAttempts.length + 1,
+              retryPipelineResult.strategy.strategy,
+              retryPipelineResult.strategy.executionParams.escalationLevel ?? "LEVEL_5_DEAD",
+              retryPipelineResult.strategy.executionParams.channel ?? null,
+              retryPipelineResult.strategy.executionParams.messageContent ?? null
+            );
           } else {
             // Schedule the next candidate attempt as PENDING
             await db.recoveryAttempt.create({
@@ -673,6 +560,105 @@ export class RecoveryEngine {
   /**
    * Get or create a customer record from the event data.
    */
+
+  private async handleStopDecision(
+    decision: { shouldStop: boolean; rule: string | null; reason: string },
+    paymentId: string,
+    externalId: string,
+    attemptId: string | null,
+    asOf: Date,
+    attemptNumber: number,
+    strategy: string,
+    escalationLevel: EscalationLevel,
+    channel: string | null,
+    messageContent: string | null
+  ): Promise<"DEFERRED" | "STOPPED_BY_RULE"> {
+    if (decision.rule === "QUIET_HOURS") {
+      const next9Am = this.getNext9AmIst(asOf);
+      
+      if (attemptId) {
+        await db.recoveryAttempt.update({
+          where: { id: attemptId },
+          data: { scheduledAt: next9Am },
+        });
+      } else {
+        await db.recoveryAttempt.create({
+          data: {
+            paymentId,
+            attemptNumber,
+            strategy,
+            escalationLevel,
+            outcome: "PENDING",
+            scheduledAt: next9Am,
+            executedAt: null,
+            channel,
+            messageContent,
+          },
+        });
+      }
+
+      await this.auditLogger.log({
+        paymentId,
+        paymentExternalId: externalId,
+        agentName: "StoppingRulesEngine",
+        action: "OUTREACH_DEFERRED",
+        reasoning: `Quiet hours active (${decision.reason}). Customer outreach deferred to 9:00 AM IST.`,
+        metadata: {
+          rule: "QUIET_HOURS",
+          deferredUntil: next9Am,
+          intendedStrategy: strategy,
+        },
+      });
+      return "DEFERRED";
+    }
+
+    await db.payment.update({
+      where: { id: paymentId },
+      data: { status: "DEAD" },
+    });
+
+    if (attemptId) {
+      await db.recoveryAttempt.update({
+        where: { id: attemptId },
+        data: {
+          outcome: "STOPPED_BY_RULE",
+          stoppedByRule: decision.rule,
+          executedAt: asOf,
+          messageContent: decision.reason,
+        },
+      });
+    } else {
+      await db.recoveryAttempt.create({
+        data: {
+          paymentId,
+          attemptNumber,
+          strategy,
+          escalationLevel,
+          outcome: "STOPPED_BY_RULE",
+          stoppedByRule: decision.rule,
+          scheduledAt: asOf,
+          executedAt: asOf,
+          channel,
+          messageContent: decision.reason,
+        },
+      });
+    }
+
+    await this.auditLogger.log({
+      paymentId,
+      paymentExternalId: externalId,
+      agentName: "StoppingRulesEngine",
+      action: "RECOVERY_STOPPED",
+      reasoning: decision.reason,
+      metadata: {
+        rule: decision.rule,
+        intendedStrategy: strategy,
+      },
+    });
+
+    return "STOPPED_BY_RULE";
+  }
+
   private async getOrCreateCustomer(event: PaymentFailureEvent) {
     const existing = await db.customer.findFirst({
       where: { id: event.customerId },
