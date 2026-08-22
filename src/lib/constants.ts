@@ -191,7 +191,7 @@ export const SIMULATION = {
     OTP_EXPIRED: 0.06,
     LIMIT_EXCEEDED: 0.04,
     SUBSCRIPTION_FAILED: 0.03,
-    FRAUD_BLOCK: 0.015,
+    FRAUD_DETECTED: 0.015,
     MANDATE_EXPIRED: 0.005,
   } as Record<string, number>,
 
