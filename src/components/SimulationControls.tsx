@@ -51,6 +51,7 @@ export function SimulationControls({
           <option value={50}>Batch: 50 Payments</option>
           <option value={100}>Batch: 100 Payments</option>
           <option value={500}>Batch: 500 Payments</option>
+          <option value={1000}>Batch: 1,000 Payments</option>
         </select>
 
         <button
