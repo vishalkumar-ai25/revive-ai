@@ -8,8 +8,8 @@
 <div align="center">
 
 [![Track](https://img.shields.io/badge/Razorpay_Buildathon_2026-Track_03:_AI_Revenue_Recovery-blue.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
-[![Tests](https://img.shields.io/badge/Automated_Tests-128%2F128_Passing_(100%25)-brightgreen.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
-[![Performance](https://img.shields.io/badge/Pipeline_Speed-~12ms%20%2F%20txn-orange.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
+[![Tests](https://img.shields.io/badge/Automated_Tests-134%2F134_Passing_(100%25)-brightgreen.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
+[![Performance](https://img.shields.io/badge/Pipeline_Speed-Fast_Execution-orange.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict_Mode_(0_Errors)-blue.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
 [![Architecture](https://img.shields.io/badge/AI_Engine-Gemini_2.0_Flash_%2B_Deterministic_Fallback-purple.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
 
@@ -27,7 +27,7 @@ Current systems either **do nothing** or **blindly retry**, causing spam, custom
 
 ## 🏗️ How Our Multi-Agent System Is Structured
 
-ReviveAI implements a **custom, lightweight, type-safe multi-agent architecture in pure TypeScript** (zero heavy framework overhead like LangGraph). This guarantees sub-millisecond execution (~12ms per transaction), 100% deterministic fallback during LLM outages or rate limits (HTTP 429), and strict compliance boundaries.
+ReviveAI implements a **custom, lightweight, type-safe multi-agent architecture in pure TypeScript** (zero heavy framework overhead like LangGraph). This guarantees fast execution, 100% deterministic fallback during LLM outages or rate limits (HTTP 429), and strict compliance boundaries.
 
 ```mermaid
 flowchart TD
@@ -170,13 +170,13 @@ ReviveAI is built specifically to address the criteria defined in **Track 03 —
 
 ## 📈 1,000-Payment Batch Simulation Benchmark
 
-Run the full 1,000-transaction synthetic benchmark in **< 3 seconds**:
+Run the full 1,000-transaction synthetic benchmark (Note: requires a pooled database connection; execution time depends on network latency):
 
 ```bash
 npm run simulate 1000
 ```
 
-### Actual Benchmark Report Output:
+### Example Report Format (illustrative — not yet run at 1,000-payment scale):
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -188,7 +188,7 @@ npm run simulate 1000
 
   ✅ Payments Recovered:        684 (68.4%)
   ✅ Revenue Recovered:         ₹2,398,750.00 (68.9% GMV recovered)
-  ⏱  Avg Processing Time:      2.8ms per payment (<3 seconds total run)
+  ⏱  Avg Processing Time:      [Pending execution]
 
   CATEGORY BREAKDOWN:
     BANK_TIMEOUT                245 / 310 recovered (79.0%)
@@ -226,13 +226,13 @@ npm test
 ```
 
 ```
-ℹ tests 128
-ℹ suites 28
-ℹ pass 128
+ℹ tests 134
+ℹ suites 30
+ℹ pass 134
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
-ℹ duration_ms 641.64ms
+ℹ duration_ms 608.56ms
 ```
 
 ---
