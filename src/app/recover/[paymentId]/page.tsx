@@ -66,13 +66,13 @@ export default async function RecoverPage({
     currency: payment.currency,
     method: payment.method,
     errorCode: payment.errorCode || "UNKNOWN",
-    timestamp: payment.createdAt,
+    timestamp: payment.failedAt,
     isRecurring: payment.isRecurring,
     mandateId: payment.mandateId,
-    errorDescription: "",
-    bank: null,
-    upiApp: null,
-    subscriptionId: null,
+    errorDescription: payment.errorDescription || "",
+    bank: payment.bank,
+    upiApp: payment.upiApp,
+    subscriptionId: payment.subscriptionId,
   };
 
   const decision = rulesEngine.evaluate(
