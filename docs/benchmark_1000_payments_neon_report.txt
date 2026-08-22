@@ -1,0 +1,38 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  📊 REVIVE AI — BATCH RECOVERY BENCHMARK REPORT (1,000 PAYMENTS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Total Failed Payments:        1,000
+  Total Revenue at Risk:        ₹5,653,001
+
+  ✅ Payments Recovered:        959 (95.9%)
+  ✅ Revenue Recovered:         ₹5,488,053 (97.1% GMV recovered)
+  ⏱  Total Benchmark Time:     2454.8s (2455ms per payment)
+
+  CATEGORY BREAKDOWN:
+    BANK_TIMEOUT             266 / 268 recovered        (99.3%)
+    INSUFFICIENT_FUNDS       178 / 178 recovered        (100.0%)
+    UPI_PSP_ERROR            108 / 108 recovered        (100.0%)
+    CARD_DECLINED            102 / 102 recovered        (100.0%)
+    NETWORK_ERROR            97 / 97 recovered          (100.0%)
+    CHECKOUT_ABANDONED       78 / 89 recovered          (87.6%)
+    OTP_EXPIRED              53 / 57 recovered          (93.0%)
+    LIMIT_EXCEEDED           38 / 38 recovered          (100.0%)
+    SUBSCRIPTION_FAILED      34 / 36 recovered          (94.4%)
+    FRAUD_DETECTED           0 / 22 recovered           (0.0%)
+    MANDATE_EXPIRED          5 / 5 recovered            (100.0%)
+
+  STRATEGY BREAKDOWN:
+    SMART_RETRY              471 successful out of 573 attempted
+    ALT_PAYMENT              323 successful out of 558 attempted
+    CUSTOMER_NUDGE           165 successful out of 306 attempted
+    DO_NOTHING               0 successful out of 22 attempted
+
+  STOPPING RULES & COMPLIANCE ENFORCEMENT:
+    Fraud Blocks Enforced:       22 transactions (100% compliance)
+    Quiet Hours Deferrals:       0 nudges deferred to 9:00 AM IST
+    Retry Cap Terminations:      0 transactions halted at 4 attempts
+    Below Min Amount Halted:     0 transactions under ₹50
+    Total Stopped by Rules:      41 payments marked DEAD
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

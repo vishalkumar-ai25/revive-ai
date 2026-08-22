@@ -63,7 +63,9 @@ To prove the system's scalability and decision-making logic, we built a virtual 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-> **Note on Benchmark Timing:** This 2.3s / 1,000-payment benchmark was measured against a local PostgreSQL instance (Homebrew) to validate engine throughput independent of network latency. The same optimizations apply when running against hosted Neon Serverless Postgres, but the exact hosted-latency timing has not been re-benchmarked since the round-trip reduction work landed; a prior, pre-optimization baseline measured ~17.5 minutes for 100 payments over Neon.
+> **Benchmark Execution Timing:**
+> - **Local PostgreSQL (Zero Latency):** 2.3 seconds total (2ms per payment). Used to validate pure engine logic and throughput.
+> - **Hosted Neon Serverless Postgres (Pooled):** 41 minutes total (2.45s per payment). Measured post-optimization against real-world cloud latency for the full 1,000-payment, multi-day lifecycle loop.
 
 ## 🛠 Quick Start Guide
 
