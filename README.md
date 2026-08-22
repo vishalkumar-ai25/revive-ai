@@ -21,7 +21,7 @@
 
 In India, **30%–35% of all payment attempts degrade or fail** due to bank timeouts, insufficient funds, network drops, and PSP throttling. For a high-velocity merchant, this means lakhs of rupees in GMV leaking daily.
 
-Current systems either **do nothing** or **blindly retry**, causing spam, customer frustration, and regulatory compliance violations.
+Current systems either **do nothing** or **blindly retry**, causing spam and customer frustration. ReviveAI enforces a strict operational escalation ladder — quiet-hours suppression, zero-retry fraud blocks, and mandate pre-debit notice — informed by e-mandate industry practice.
 
 ---
 
@@ -108,7 +108,7 @@ flowchart TD
    - Autonomous sequencer for subscription and recurring mandate failures.
    - Implements 4-attempt spacing ($T_0 \to T+48\text{h} \to T+96\text{h} \to T+144\text{h}$) aligned with Indian bank clearing windows (10:15 AM IST).
    - Progressive rail switching: `UPI_AUTOPAY` $\to$ `E_NACH` $\to$ `ON_DEMAND_LINK`.
-   - Generates mandatory 24-hour pre-debit notifications prior to each execution.
+   - Triggers 24-hour pre-debit notifications (`preDebitNotificationSentAt`) prior to each execution, enforcing an operational policy informed by e-mandate industry practice.
 
 5. **[`StoppingRulesEngine`](file:///Users/vishalkumar/revive-ai/src/lib/engine/stopping-rules.ts) (Compliance Guardrails)**
    - Enforces **6 non-negotiable rules**: Fraud blocks (zero-retry), minimum amount (<₹50), max 4 retries, max 3 nudges, recovery window expiry (72h standard / 168h mandate), and **Quiet Hours** (9:00 PM – 9:00 AM IST).
@@ -208,7 +208,7 @@ npm test
 ### Prerequisites
 - Node.js >= 20.x
 - PostgreSQL database (Neon, Supabase, or local)
-- Google AI Studio API Key ([Get free key](https://aistudio.google.com/)) *(Optional: engine falls back to deterministic rules if omitted)*
+- `GOOGLE_AI_API_KEY` ([Get free key](https://aistudio.google.com/)) *(Optional: Reviewers can run the full 1,000-payment benchmark **without an API key**. If omitted, the DiagnosisAgent instantly falls back to the 24-code deterministic mapping for zero-friction testing.)*
 
 ### Installation
 
