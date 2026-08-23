@@ -47,3 +47,11 @@ docs/simulation_full_data.json
 docs/simulation_dump.sql
 docs/simulate_100_clean.txt
 docs/simulate_50_baseline.txt
+
+# Agent scratch/patch scripts — never commit
+scratch/
+*.patch.js
+
+# Agent scratch/patch scripts — never commit
+scratch/
+*.patch.js

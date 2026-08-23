@@ -17,46 +17,44 @@
   📊 Ingested 900/1000 payments
   📊 Ingested 1000/1000 payments
   ⏳ Progressing virtual time over up to 169 hours...
-  ⏳ T+24h — 170 attempts still pending
-  ⏳ T+48h — 170 attempts still pending
-  ✨ All recovery attempts resolved at T+72h
+  ✨ All recovery attempts resolved at T+10h
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   📊 REVIVE AI — BATCH RECOVERY BENCHMARK REPORT (1,000 PAYMENTS)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   Total Failed Payments:        1,000
-  Total Revenue at Risk:        ₹5,556,229
+  Total Revenue at Risk:        ₹5,221,602
 
-  ✅ Payments Recovered:        676 (67.6%)
-  ✅ Revenue Recovered:         ₹4,055,221 (73.0% GMV recovered)
-  ⏱  Total Benchmark Time:     9.0s (9ms per payment)
+  ✅ Payments Recovered:        683 (68.3%)
+  ✅ Revenue Recovered:         ₹3,752,444 (71.9% GMV recovered)
+  ⏱  Total Benchmark Time:     1.7s (2ms per payment)
 
   CATEGORY BREAKDOWN:
-    BANK_TIMEOUT             223 / 278 recovered        (80.2%)
-    INSUFFICIENT_FUNDS       100 / 180 recovered        (55.6%)
-    UPI_PSP_ERROR            87 / 110 recovered         (79.1%)
-    CARD_DECLINED            67 / 103 recovered         (65.0%)
-    NETWORK_ERROR            73 / 93 recovered          (78.5%)
-    CHECKOUT_ABANDONED       40 / 79 recovered          (50.6%)
-    OTP_EXPIRED              36 / 55 recovered          (65.5%)
-    LIMIT_EXCEEDED           27 / 51 recovered          (52.9%)
-    SUBSCRIPTION_FAILED      20 / 34 recovered          (58.8%)
-    FRAUD_DETECTED           0 / 11 recovered           (0.0%)
-    MANDATE_EXPIRED          3 / 6 recovered            (50.0%)
+    BANK_TIMEOUT             236 / 288 recovered        (81.9%)
+    INSUFFICIENT_FUNDS       100 / 183 recovered        (54.6%)
+    UPI_PSP_ERROR            98 / 123 recovered         (79.7%)
+    CARD_DECLINED            56 / 104 recovered         (53.8%)
+    NETWORK_ERROR            79 / 93 recovered          (84.9%)
+    CHECKOUT_ABANDONED       45 / 80 recovered          (56.3%)
+    OTP_EXPIRED              43 / 59 recovered          (72.9%)
+    LIMIT_EXCEEDED           16 / 28 recovered          (57.1%)
+    SUBSCRIPTION_FAILED      9 / 21 recovered           (42.9%)
+    FRAUD_DETECTED           0 / 18 recovered           (0.0%)
+    MANDATE_EXPIRED          1 / 3 recovered            (33.3%)
 
   STRATEGY BREAKDOWN:
-    SMART_RETRY              383 successful out of 481 attempted
-    ALT_PAYMENT              197 successful out of 340 attempted
-    CUSTOMER_NUDGE           96 successful out of 168 attempted
-    DO_NOTHING               0 successful out of 7976 attempted
+    SMART_RETRY              413 successful out of 504 attempted
+    ALT_PAYMENT              173 successful out of 318 attempted
+    CUSTOMER_NUDGE           97 successful out of 160 attempted
+    DO_NOTHING               0 successful out of 172 attempted
 
   STOPPING RULES & COMPLIANCE ENFORCEMENT:
-    Fraud Blocks Enforced:       11 transactions (100% compliance)
+    Fraud Blocks Enforced:       18 transactions (100% compliance)
     Quiet Hours Deferrals:       0 nudges deferred to 9:00 AM IST
     Retry Cap Terminations:      0 transactions halted at 4 attempts
     Below Min Amount Halted:     0 transactions under ₹50
-    Total Stopped by Rules:      324 payments marked DEAD
+    Total Stopped by Rules:      317 payments marked DEAD
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
