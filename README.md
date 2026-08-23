@@ -8,7 +8,7 @@
 <div align="center">
 
 [![Track](https://img.shields.io/badge/Razorpay_Buildathon_2026-Track_03:_AI_Revenue_Recovery-blue.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
-[![Tests](https://img.shields.io/badge/Automated_Tests-134%2F134_Passing_(100%25)-brightgreen.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
+[![Tests](https://img.shields.io/badge/Automated_Tests-120%2F120_Passing_(100%25)-brightgreen.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
 [![Performance](https://img.shields.io/badge/Pipeline_Speed-Fast_Execution-orange.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict_Mode_(0_Errors)-blue.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
 [![Architecture](https://img.shields.io/badge/AI_Engine-Gemini_2.0_Flash_%2B_Deterministic_Fallback-purple.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
@@ -194,9 +194,9 @@ npm test
 ```
 
 ```
-ℹ tests 143
+ℹ tests 120
 ℹ suites 33
-ℹ pass 143
+ℹ pass 120
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0

@@ -37,6 +37,15 @@ export class StoppingRulesEngine {
     isFraudBlocked: boolean,
     strategy?: RecoveryStrategy,
   ): StopDecision {
+    // Rule 1: NEVER retry fraud-blocked payments
+    if (isFraudBlocked) {
+      return {
+        shouldStop: true,
+        rule: "FRAUD_BLOCK",
+        reason: "Payment was flagged as fraud by the issuing bank. Recovery prohibited.",
+      };
+    }
+
     if (strategy === "DO_NOTHING") {
       return {
         shouldStop: true,
@@ -44,12 +53,12 @@ export class StoppingRulesEngine {
         reason: "Agent elected to DO_NOTHING. Recovery aborted.",
       };
     }
-    // Rule 1: NEVER retry fraud-blocked payments
-    if (isFraudBlocked) {
+
+if (strategy === "DO_NOTHING") {
       return {
         shouldStop: true,
-        rule: "FRAUD_BLOCK",
-        reason: "Payment was flagged as fraud by the issuing bank. Recovery prohibited.",
+        rule: "STRATEGY_DO_NOTHING",
+        reason: "Agent elected to DO_NOTHING. Recovery aborted.",
       };
     }
 
