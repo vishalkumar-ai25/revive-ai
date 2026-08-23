@@ -9,9 +9,9 @@
 // deterministic rule matching when the API key is missing or the LLM fails.
 // =============================================================================
 
+import { DiagnosisResultSchema } from "../schemas";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { FailureCategory } from "@prisma/client";
-import { z } from "zod";
 import { LLM_CONFIG } from "@/lib/constants";
 import type { DiagnosisResult, DiagnosisSignal, PaymentFailureEvent } from "@/lib/types";
 
@@ -53,10 +53,14 @@ const ERROR_CODE_MAP: Record<string, FailureCategory> = {
 export class DiagnosisAgent {
   private genAI: GoogleGenerativeAI | null = null;
 
-  constructor() {
-    const apiKey = process.env.GOOGLE_AI_API_KEY;
-    if (apiKey && apiKey !== LLM_CONFIG.PLACEHOLDER_KEY && apiKey.trim().length > 0) {
-      this.genAI = new GoogleGenerativeAI(apiKey);
+  constructor(llmClient?: GoogleGenerativeAI) {
+    if (llmClient) {
+      this.genAI = llmClient;
+    } else {
+      const apiKey = process.env.GOOGLE_AI_API_KEY;
+      if (apiKey && apiKey !== LLM_CONFIG.PLACEHOLDER_KEY && apiKey.trim().length > 0) {
+        this.genAI = new GoogleGenerativeAI(apiKey);
+      }
     }
   }
 
@@ -123,33 +127,6 @@ Respond in JSON:
 
     const result = await model.generateContent(prompt);
     const text = result.response.text();
-    const DiagnosisResultSchema = z.object({
-      category: z.enum([
-        "BANK_TIMEOUT",
-        "INSUFFICIENT_FUNDS",
-        "CARD_DECLINED",
-        "NETWORK_ERROR",
-        "UPI_PSP_ERROR",
-        "OTP_EXPIRED",
-        "LIMIT_EXCEEDED",
-        "FRAUD_BLOCK",
-        "MANDATE_EXPIRED",
-        "CHECKOUT_ABANDONED",
-        "SUBSCRIPTION_FAILED",
-        "UNKNOWN",
-      ]),
-      confidence: z.number().min(0).max(1),
-      isRecoverable: z.boolean(),
-      rootCause: z.string(),
-      signals: z.array(
-        z.object({
-          name: z.string(),
-          value: z.string(),
-          weight: z.number(),
-        })
-      ),
-    });
-
     const parsed = DiagnosisResultSchema.safeParse(JSON.parse(text));
     if (!parsed.success) {
       throw new Error("Invalid Gemini diagnosis payload");

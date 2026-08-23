@@ -10,6 +10,7 @@
 // Audit logging happens at each stage for full traceability.
 // =============================================================================
 
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { DiagnosisAgent } from "./diagnosis-agent";
 import { RiskAssessmentAgent } from "./risk-assessment-agent";
 import { StrategyAgent } from "./strategy-agent";
@@ -32,8 +33,8 @@ export class RecoveryPipeline {
   private strategyAgent: StrategyAgent;
   private auditLogger: AuditLogger;
 
-  constructor(clock: Clock = new SystemClock()) {
-    this.diagnosisAgent = new DiagnosisAgent();
+  constructor(clock: Clock = new SystemClock(), llmClient?: GoogleGenerativeAI) {
+    this.diagnosisAgent = new DiagnosisAgent(llmClient);
     this.riskAgent = new RiskAssessmentAgent();
     this.strategyAgent = new StrategyAgent(clock);
     this.auditLogger = new AuditLogger();

@@ -283,6 +283,7 @@ export class RecoveryEngine {
    * 3. On SUCCESS: mark Payment RECOVERED
    * 4. On FAILED: keep Payment RECOVERY_IN_PROGRESS, schedule next attempt via processRetry()
    */
+
   async tick(asOf: Date): Promise<TickResult[]> {
     const dueAttempts = await db.recoveryAttempt.findMany({
       where: {
@@ -316,242 +317,246 @@ export class RecoveryEngine {
     const attemptChunks = chunkArray(dueAttempts, 20);
 
     for (const chunk of attemptChunks) {
-      await Promise.all(
-        chunk.map(async (dueAttempt) => {
-      const payment = dueAttempt.payment;
-      const isFraud =
-        payment.errorCode === "FRAUD_DETECTED" ||
-        payment.errorCode === "SUSPECTED_FRAUD";
+      const chunkResults = await Promise.all(
+        chunk.map((dueAttempt) => this.processDueAttempt(dueAttempt, asOf))
+      );
+      results.push(...chunkResults.filter((r): r is TickResult => r !== null));
+    }
 
-      const previousAttempts = payment.recoveryAttempts;
+    return results;
+  }
 
-      const event: PaymentFailureEvent = {
-        externalId: payment.externalId,
-        merchantId: payment.merchantId,
-        customerId: payment.customerId,
-        amount: payment.amount,
-        currency: payment.currency,
-        method: payment.method,
-        bank: payment.bank,
-        upiApp: payment.upiApp,
-        errorCode: payment.errorCode ?? "UNKNOWN",
-        errorDescription: payment.errorDescription ?? "Unknown failure",
-        isRecurring: payment.isRecurring,
-        subscriptionId: payment.subscriptionId,
-        mandateId: payment.mandateId,
-        timestamp: payment.failedAt,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async processDueAttempt(dueAttempt: any, asOf: Date): Promise<TickResult | null> {
+    const payment = dueAttempt.payment;
+    const isFraud =
+      payment.errorCode === "FRAUD_DETECTED" ||
+      payment.errorCode === "SUSPECTED_FRAUD";
+
+    const previousAttempts = payment.recoveryAttempts;
+
+    const event: PaymentFailureEvent = {
+      externalId: payment.externalId,
+      merchantId: payment.merchantId,
+      customerId: payment.customerId,
+      amount: payment.amount,
+      currency: payment.currency,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      method: payment.method as any,
+      bank: payment.bank,
+      upiApp: payment.upiApp,
+      errorCode: payment.errorCode ?? "UNKNOWN",
+      errorDescription: payment.errorDescription ?? "Unknown failure",
+      isRecurring: payment.isRecurring,
+      subscriptionId: payment.subscriptionId,
+      mandateId: payment.mandateId,
+      timestamp: payment.createdAt,
+    };
+
+    // Pre-execution evaluation
+    const stopDecision = this.stoppingRules.evaluate(
+      event,
+      previousAttempts,
+      isFraud,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      dueAttempt.strategy as any,
+    );
+
+    if (stopDecision.shouldStop) {
+      const outcome = await this.handleStopDecision(
+        stopDecision,
+        payment.id,
+        dueAttempt.id,
+        asOf,
+        dueAttempt.attemptNumber,
+        dueAttempt.strategy,
+        dueAttempt.escalationLevel,
+        dueAttempt.channel,
+        dueAttempt.messageContent
+      );
+
+      return {
+        attemptId: dueAttempt.id,
+        paymentId: payment.id,
+        strategy: dueAttempt.strategy,
+        outcome: outcome,
       };
+    }
 
-      // Check stopping rules before executing this attempt
-      const stopDecision = this.stoppingRules.evaluate(
-        event,
-        previousAttempts,
-        isFraud,
-        dueAttempt.strategy,
-      );
+    // Simulate recovery outcome based on probability
+    const recoveryProbability =
+      payment.failureEvent?.recoveryProbability ?? 0.5;
+    const isSimulatedSuccess = this.simulateOutcome(
+      recoveryProbability,
+      dueAttempt.strategy,
+    );
+    const outcome = isSimulatedSuccess ? "SUCCESS" : "FAILED";
 
-      if (stopDecision.shouldStop) {
-        const outcome = await this.handleStopDecision(
-          stopDecision,
-          payment.id,
-          dueAttempt.id, // Updating the existing PENDING attempt
-          asOf,
-          dueAttempt.attemptNumber,
-          dueAttempt.strategy,
-          dueAttempt.escalationLevel,
-          dueAttempt.channel,
-          dueAttempt.messageContent
-        );
-
-        results.push({
-          attemptId: dueAttempt.id,
-          paymentId: payment.id,
-          strategy: dueAttempt.strategy,
-          outcome: outcome,
-        });
-        return;
-      }
-
-      // Simulate recovery outcome based on probability
-      const recoveryProbability =
-        payment.failureEvent?.recoveryProbability ?? 0.5;
-      const isSimulatedSuccess = this.simulateOutcome(
-        recoveryProbability,
-        dueAttempt.strategy,
-      );
-      const outcome = isSimulatedSuccess ? "SUCCESS" : "FAILED";
-
-      if (isSimulatedSuccess) {
-        await db.payment.update({
-          where: { id: payment.id },
-          data: {
-            status: "RECOVERED",
-            recoveryAttempts: {
-              update: {
-                where: { id: dueAttempt.id },
-                data: { outcome, executedAt: asOf },
-              },
+    if (isSimulatedSuccess) {
+      await db.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: "RECOVERED",
+          recoveryAttempts: {
+            update: {
+              where: { id: dueAttempt.id },
+              data: { outcome, executedAt: asOf },
             },
-            auditLogs: {
-              create: {
-                agentName: "RecoveryEngine",
-                action: "PAYMENT_RECOVERED",
-                reasoning: `Strategy: ${dueAttempt.strategy} | Attempt #${dueAttempt.attemptNumber} | Outcome: SUCCESS`,
-                metadata: {
-                  strategy: dueAttempt.strategy,
-                  attemptNumber: dueAttempt.attemptNumber,
-                  outcome: "SUCCESS",
-                },
+          },
+          auditLogs: {
+            create: {
+              agentName: "RecoveryEngine",
+              action: "PAYMENT_RECOVERED",
+              reasoning: `Strategy: ${dueAttempt.strategy} | Attempt #${dueAttempt.attemptNumber} | Outcome: SUCCESS`,
+              metadata: {
+                strategy: dueAttempt.strategy,
+                attemptNumber: dueAttempt.attemptNumber,
+                outcome: "SUCCESS",
               },
             },
           },
-        });
+        },
+      });
 
-        results.push({
-          attemptId: dueAttempt.id,
-          paymentId: payment.id,
-          strategy: dueAttempt.strategy,
-          outcome: "SUCCESS",
+      return {
+        attemptId: dueAttempt.id,
+        paymentId: payment.id,
+        strategy: dueAttempt.strategy,
+        outcome: "SUCCESS",
+      };
+    } else {
+      // Failed attempt
+      await db.payment.update({
+        where: { id: payment.id },
+        data: {
+          recoveryAttempts: {
+            update: {
+              where: { id: dueAttempt.id },
+              data: { outcome, executedAt: asOf },
+            },
+          },
+          auditLogs: {
+            create: {
+              agentName: "RecoveryEngine",
+              action: "RECOVERY_ATTEMPT_FAILED",
+              reasoning: `Strategy: ${dueAttempt.strategy} | Attempt #${dueAttempt.attemptNumber} | Outcome: FAILED`,
+              metadata: {
+                strategy: dueAttempt.strategy,
+                attemptNumber: dueAttempt.attemptNumber,
+                outcome: "FAILED",
+              },
+            },
+          },
+        },
+      });
+
+      // Re-evaluate stopping rules
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const updatedPreviousAttempts = previousAttempts.map((a: any) => 
+        a.attemptNumber === dueAttempt.attemptNumber 
+          ? { ...a, outcome: "FAILED" as const } 
+          : a
+      );
+
+      const nextStopDecision = this.stoppingRules.evaluate(
+        event,
+        updatedPreviousAttempts,
+        isFraud,
+      );
+
+      if (nextStopDecision.shouldStop) {
+        await db.payment.update({
+          where: { id: payment.id },
+          data: { 
+            status: "DEAD",
+            auditLogs: {
+              create: {
+                agentName: "StoppingRulesEngine",
+                action: "RECOVERY_STOPPED",
+                reasoning: nextStopDecision.reason,
+                metadata: { rule: nextStopDecision.rule },
+              },
+            },
+          },
         });
       } else {
-        // Failed attempt — keep payment at RECOVERY_IN_PROGRESS (do not regress to FAILED)
-        await db.payment.update({
-          where: { id: payment.id },
-          data: {
-            recoveryAttempts: {
-              update: {
-                where: { id: dueAttempt.id },
-                data: { outcome, executedAt: asOf },
-              },
-            },
-            auditLogs: {
-              create: {
-                agentName: "RecoveryEngine",
-                action: "RECOVERY_ATTEMPT_FAILED",
-                reasoning: `Strategy: ${dueAttempt.strategy} | Attempt #${dueAttempt.attemptNumber} | Outcome: FAILED`,
-                metadata: {
-                  strategy: dueAttempt.strategy,
-                  attemptNumber: dueAttempt.attemptNumber,
-                  outcome: "FAILED",
-                },
-              },
-            },
-          },
-        });
+        // Reconstruct diagnosis from failure event
+        const fe = payment.failureEvent;
+        const reconstructedDiagnosis: DiagnosisResult = {
+          category: fe?.category ?? "UNKNOWN",
+          rootCause: fe?.rootCause ?? "Payment failure",
+          confidence: fe?.diagnosisConfidence ?? 0.5,
+          isRecoverable: fe?.isRecoverable ?? true,
+          signals: [],
+        };
 
-        results.push({
-          attemptId: dueAttempt.id,
-          paymentId: payment.id,
-          strategy: dueAttempt.strategy,
-          outcome: "FAILED",
-        });
+        const customerHistory: CustomerHistory = {
+          totalPurchases: payment.customer.totalPurchases,
+          lifetimeValue: payment.customer.lifetimeValue,
+          previousFailures: updatedPreviousAttempts.length,
+          daysSinceLastPurchase: null,
+        };
 
-        // Re-evaluate stopping rules for subsequent attempt
-        const updatedPreviousAttempts = previousAttempts.map(a => 
-          a.attemptNumber === dueAttempt.attemptNumber 
-            ? { ...a, outcome: "FAILED" as const } 
-            : a
+        const retryPipelineResult = await this.pipeline.processRetry(
+          event,
+          reconstructedDiagnosis,
+          customerHistory,
+          payment.id,
         );
 
-        const nextStopDecision = this.stoppingRules.evaluate(
+        // Update isFraud to include LLM diagnosis
+        let isFraudUpdate = isFraud;
+        if (reconstructedDiagnosis.category === "FRAUD_BLOCK") {
+           isFraudUpdate = true;
+        }
+
+        // Post-strategy stopping rules check
+        const postRetryStopDecision = this.stoppingRules.evaluate(
           event,
           updatedPreviousAttempts,
-          isFraud,
+          isFraudUpdate,
+          retryPipelineResult.strategy.strategy,
         );
 
-        if (nextStopDecision.shouldStop) {
-          await db.payment.update({
-            where: { id: payment.id },
-            data: { 
-              status: "DEAD",
-              auditLogs: {
-                create: {
-                  agentName: "StoppingRulesEngine",
-                  action: "RECOVERY_STOPPED",
-                  reasoning: nextStopDecision.reason,
-                  metadata: { rule: nextStopDecision.rule },
-                },
-              },
+        if (postRetryStopDecision.shouldStop) {
+          await this.handleStopDecision(
+            postRetryStopDecision,
+            payment.id,
+            null, // Create new attempt row
+            asOf,
+            dueAttempt.attemptNumber + 1,
+            retryPipelineResult.strategy.strategy,
+            retryPipelineResult.strategy.executionParams.escalationLevel ?? "LEVEL_5_DEAD",
+            retryPipelineResult.strategy.executionParams.channel ?? null,
+            retryPipelineResult.strategy.executionParams.messageContent ?? null
+          );
+        } else {
+          // Schedule next attempt
+          await db.recoveryAttempt.create({
+            data: {
+              paymentId: payment.id,
+              attemptNumber: dueAttempt.attemptNumber + 1,
+              strategy: retryPipelineResult.strategy.strategy,
+              outcome: "PENDING",
+              scheduledAt: retryPipelineResult.strategy.executionParams.scheduledAt,
+              escalationLevel: retryPipelineResult.strategy.executionParams.escalationLevel ?? "LEVEL_1_ONSCREEN",
+              channel: retryPipelineResult.strategy.executionParams.channel ?? "none",
+              messageContent: retryPipelineResult.strategy.executionParams.messageContent ?? null,
             },
           });
-        } else {
-          // Reconstruct diagnosis from failure event (skips fresh Gemini LLM call)
-          const fe = payment.failureEvent;
-          const reconstructedDiagnosis: DiagnosisResult = {
-            category: fe?.category ?? "UNKNOWN",
-            rootCause: fe?.rootCause ?? "Payment failure",
-            confidence: fe?.diagnosisConfidence ?? 0.5,
-            isRecoverable: fe?.isRecoverable ?? true,
-            signals: [],
-          };
-
-          const customerHistory: CustomerHistory = {
-            totalPurchases: payment.customer.totalPurchases,
-            lifetimeValue: payment.customer.lifetimeValue,
-            previousFailures: updatedPreviousAttempts.length,
-            daysSinceLastPurchase: null,
-          };
-
-          const retryPipelineResult = await this.pipeline.processRetry(
-            event,
-            reconstructedDiagnosis,
-            customerHistory,
-            payment.id,
-          );
-
-          // Update isFraud to include LLM diagnosis
-          let isFraudUpdate = isFraud;
-          if (reconstructedDiagnosis.category === "FRAUD_BLOCK") {
-             isFraudUpdate = true;
-          }
-
-          // Post-strategy stopping rules check
-          const postRetryStopDecision = this.stoppingRules.evaluate(
-            event,
-            updatedPreviousAttempts,
-            isFraudUpdate,
-            retryPipelineResult.strategy.strategy,
-          );
-
-          if (postRetryStopDecision.shouldStop) {
-            await this.handleStopDecision(
-              postRetryStopDecision,
-              payment.id,
-              null, // Create new attempt row
-              asOf,
-              updatedPreviousAttempts.length + 1,
-              retryPipelineResult.strategy.strategy,
-              retryPipelineResult.strategy.executionParams.escalationLevel ?? "LEVEL_5_DEAD",
-              retryPipelineResult.strategy.executionParams.channel ?? null,
-              retryPipelineResult.strategy.executionParams.messageContent ?? null
-            );
-          } else {
-            // Schedule the next candidate attempt as PENDING
-            await db.recoveryAttempt.create({
-              data: {
-                paymentId: payment.id,
-                attemptNumber: updatedPreviousAttempts.length + 1,
-                strategy: retryPipelineResult.strategy.strategy,
-                escalationLevel:
-                  retryPipelineResult.strategy.executionParams.escalationLevel,
-                outcome: "PENDING",
-                scheduledAt:
-                  retryPipelineResult.strategy.executionParams.scheduledAt,
-                executedAt: null,
-                channel: retryPipelineResult.strategy.executionParams.channel,
-                messageContent:
-                  retryPipelineResult.strategy.executionParams.messageContent,
-              },
-            });
-          }
         }
       }
-    })
-  );
-}
 
-return results;
-}
+      return {
+        attemptId: dueAttempt.id,
+        paymentId: payment.id,
+        strategy: dueAttempt.strategy,
+        outcome: "FAILED",
+      };
+    }
+  }
+
+
 
   /**
    * Compatibility shim: Intake failure then immediately tick at current clock time.
