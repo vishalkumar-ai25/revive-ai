@@ -37,6 +37,13 @@ export class StoppingRulesEngine {
     isFraudBlocked: boolean,
     strategy?: RecoveryStrategy,
   ): StopDecision {
+    if (strategy === "DO_NOTHING") {
+      return {
+        shouldStop: true,
+        rule: "STRATEGY_DO_NOTHING",
+        reason: "Agent elected to DO_NOTHING. Recovery aborted.",
+      };
+    }
     // Rule 1: NEVER retry fraud-blocked payments
     if (isFraudBlocked) {
       return {

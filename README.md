@@ -194,9 +194,9 @@ npm test
 ```
 
 ```
-ℹ tests 134
-ℹ suites 30
-ℹ pass 134
+ℹ tests 143
+ℹ suites 33
+ℹ pass 143
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0

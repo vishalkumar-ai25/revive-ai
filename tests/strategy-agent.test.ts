@@ -118,7 +118,7 @@ describe("StrategyAgent — CUSTOMER_NUDGE Escalation Channel Selection", () => 
 
 describe("StrategyAgent — Timezone-Independent Scheduling", () => {
   it("calculateOptimalRetryTime returns same scheduledAt for UTC noon and IST equivalent", () => {
-    const clockUtc = new VirtualClock(new Date(Date.UTC(2025, 0, 15, 6, 30))); // 12:00 PM IST
+    const clockUtc = new VirtualClock(new Date(Date.UTC(2025, 0, 15, 3, 30))); // 9:00 AM IST
     const agentUtc = new StrategyAgent(clockUtc);
     
     // Using a bank with a generic window.
@@ -128,6 +128,12 @@ describe("StrategyAgent — Timezone-Independent Scheduling", () => {
     
     const strategy = agentUtc.select(event, diagnosis, risk);
     assert.ok(strategy.executionParams.scheduledAt);
+
+    // Should schedule within an hour since 9:00 AM IST is during the daytime (best window for HDFC).
+    // Specifically, now + 10 to 60 minutes.
+    const scheduled = strategy.executionParams.scheduledAt;
+    const diffMs = scheduled.getTime() - clockUtc.now().getTime();
+    assert.ok(diffMs >= 10 * 60000 && diffMs <= 60 * 60000);
   });
 
   it("calculateNudgeTime respects IST quiet hours, not local TZ", () => {

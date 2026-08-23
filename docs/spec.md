@@ -38,7 +38,7 @@ ReviveAI is an autonomous, rule-bounded multi-agent revenue recovery engine that
 | **#1 Payment Failure Recovery** | One-time transactions (UPI, Cards, Netbanking) | Bank server timeouts, PSP errors, network dropouts | Bank-specific optimal time window retries (e.g., HDFC 8–10 AM), intelligent routing, alternative payment rail suggestion | ✅ Implemented |
 | **#2 Checkout Drop-Off Recovery** | Pre-payment abandonment | Cart opened, checkout initialized, user navigated away | Timed respectful recovery email/SMS with cart reservation token and direct one-click checkout link | ✅ Implemented |
 | **#3 Failed Subscription Recovery** | Recurring SaaS / OTT billing | Card expired, renewal failed, transient low balance | Grace period management, salary-cycle-aligned retry (1st–5th of month), update payment method prompt | ✅ Implemented |
-| **#4 Mandate Retry Sequencer** | UPI Autopay / e-NACH mandates | Bank debit failed, mandate timing issue, RBI re-auth | RBI-compliant 4-attempt sequencer with progressive time spacing and automatic rail fallback (UPI $\rightarrow$ e-NACH/Card) | 🚀 Phase 3 |
+| **#4 Mandate Retry Sequencer** | UPI Autopay / e-NACH mandates | Bank debit failed, mandate timing issue, RBI re-auth | RBI-compliant 4-attempt sequencer with progressive time spacing and automatic rail fallback (UPI $\rightarrow$ e-NACH/Card) | ✅ Implemented |
 
 **Deliberately Out of Scope:** B2B receivables chaser (requires full accounting ERP domain), Hinglish voice agent (telephony/voice latency bloat), promise-to-pay tracker. Explicitly calling these out as conscious scoping decisions.
 
