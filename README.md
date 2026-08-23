@@ -53,7 +53,7 @@ flowchart TD
 
     subgraph Guardrails["🛡️ Guardrails & Compliance Engine"]
         direction TB
-        SRE["StoppingRulesEngine (6 Non-Negotiable Rules)<br/>1. FRAUD_BLOCK (Never retry fraud)<br/>2. BELOW_MIN_AMOUNT (< ₹50)<br/>3. MAX_RETRIES_EXCEEDED (≥ 4 retries)<br/>4. MAX_NUDGES_EXCEEDED (≥ 3 nudges)<br/>5. RECOVERY_WINDOW_EXPIRED (72h / 168h)<br/>6. QUIET_HOURS (9 PM – 9 AM IST)"]
+        SRE["StoppingRulesEngine (9 Non-Negotiable Rules)<br/>1. FRAUD_BLOCK (Never retry fraud)<br/>2. STRATEGY_DO_NOTHING (Agent abort)<br/>3. BELOW_MIN_AMOUNT (< ₹50)<br/>4. MAX_RETRIES_EXCEEDED (≥ 4 retries)<br/>5. MAX_NUDGES_EXCEEDED (≥ 3 nudges)<br/>6. RECOVERY_WINDOW_EXPIRED (72h / 168h)<br/>7. MAX_ALT_PAYMENT_EXCEEDED (Cap 1)<br/>8. MAX_ESCALATE_MERCHANT_EXCEEDED (Cap 1)<br/>9. QUIET_HOURS (9 PM – 9 AM IST)"]
         
         P1["Passed"]
         P2["Hard Stop / Violation"]
@@ -226,6 +226,7 @@ npm install
 cp .env.example .env
 # Fill in your DATABASE_URL in .env
 # Add RECOVERY_LINK_HMAC_SECRET (required for email verification links)
+# Add WEBHOOK_SIGNING_SECRET (required for Razorpay webhook validation)
 
 # 4. Push database schema
 npx prisma generate

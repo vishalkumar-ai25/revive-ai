@@ -54,14 +54,6 @@ export class StoppingRulesEngine {
       };
     }
 
-if (strategy === "DO_NOTHING") {
-      return {
-        shouldStop: true,
-        rule: "STRATEGY_DO_NOTHING",
-        reason: "Agent elected to DO_NOTHING. Recovery aborted.",
-      };
-    }
-
     // Rule 2: Amount too small to justify recovery cost
     if (event.amount < STOPPING_RULES.MIN_RECOVERY_AMOUNT_INR) {
       return {
