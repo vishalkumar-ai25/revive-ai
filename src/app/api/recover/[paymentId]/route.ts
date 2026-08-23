@@ -13,7 +13,11 @@ export async function POST(
     const url = new URL(req.url);
     const sig = url.searchParams.get("sig");
     
-    const secret = process.env.RECOVERY_LINK_HMAC_SECRET || "fallback_secret_for_dev_only";
+    const secret = process.env.RECOVERY_LINK_HMAC_SECRET;
+    if (!secret) {
+      console.error("RECOVERY_LINK_HMAC_SECRET is missing from environment");
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
     const expectedSig = crypto.createHmac("sha256", secret).update(paymentId).digest("hex");
 
     if (!sig || sig !== expectedSig) {

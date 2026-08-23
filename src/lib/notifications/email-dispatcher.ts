@@ -15,7 +15,11 @@ export class EmailDispatcher {
     amount: number,
     messageContent: string
   ): Promise<boolean> {
-    const secret = process.env.RECOVERY_LINK_HMAC_SECRET || "fallback_secret_for_dev_only";
+    const secret = process.env.RECOVERY_LINK_HMAC_SECRET;
+    if (!secret) {
+      throw new Error("RECOVERY_LINK_HMAC_SECRET environment variable must be set to generate recovery links.");
+    }
+    
     const signature = crypto
       .createHmac("sha256", secret)
       .update(paymentId)
