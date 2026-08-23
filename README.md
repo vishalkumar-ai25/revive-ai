@@ -181,6 +181,8 @@ To prove the system's scalability and decision-making logic, we built a virtual 
 > - **Local PostgreSQL (Zero Latency):** 2.3 seconds total (2ms per payment). Used to validate pure engine logic and throughput.
 > - **Hosted Neon Serverless Postgres (Pooled):** 41 minutes total (2.45s per payment). Measured post-optimization against real-world cloud latency for the full 1,000-payment, multi-day lifecycle loop.
 
+*Note: Quiet-hours deferrals appear as `0` in the benchmark because the StrategyAgent proactively schedules nudges for 9:00 AM IST, pre-empting the stopping-rules engine from needing to block them during quiet hours.*
+
 ---
 
 ## 🧪 Automated Test Suite (`npm test`)
@@ -223,8 +225,10 @@ npm install
 # 3. Setup environment variables
 cp .env.example .env
 # Fill in your DATABASE_URL in .env
+# Add RECOVERY_LINK_HMAC_SECRET (required for email verification links)
 
 # 4. Push database schema
+npx prisma generate
 npx prisma db push
 
 # 5. Seed with initial simulated batch

@@ -2,13 +2,23 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { StoppingRulesEngine } from "@/lib/engine/stopping-rules";
 import type { PaymentFailureEvent } from "@/lib/types";
+import crypto from "crypto";
 
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ paymentId: string }> }
 ) {
   try {
     const { paymentId } = await params;
+    const url = new URL(req.url);
+    const sig = url.searchParams.get("sig");
+    
+    const secret = process.env.RECOVERY_LINK_HMAC_SECRET || "fallback_secret_for_dev_only";
+    const expectedSig = crypto.createHmac("sha256", secret).update(paymentId).digest("hex");
+
+    if (!sig || sig !== expectedSig) {
+      return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
+    }
     
     // 1. Fetch payment and history
     const payment = await db.payment.findUnique({

@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { db } from '@/lib/db';
+import crypto from "crypto";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -14,7 +15,12 @@ export class EmailDispatcher {
     amount: number,
     messageContent: string
   ): Promise<boolean> {
-    const recoveryLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/recover/${paymentId}`;
+    const secret = process.env.RECOVERY_LINK_HMAC_SECRET || "fallback_secret_for_dev_only";
+    const signature = crypto
+      .createHmac("sha256", secret)
+      .update(paymentId)
+      .digest("hex");
+    const recoveryLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/recover/${paymentId}?sig=${signature}`;
     const htmlContent = `
       <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto;">
         <h2 style="color: #4f46e5;">Action Required: Payment Failed</h2>

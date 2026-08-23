@@ -7,10 +7,14 @@ import ClientRecoveryUI from "./ClientRecoveryUI";
 
 export default async function RecoverPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ paymentId: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { paymentId } = await params;
+  const { sig } = await searchParams;
+  const signature = Array.isArray(sig) ? sig[0] : sig;
 
   const payment = await db.payment.findUnique({
     where: { id: paymentId },
@@ -95,5 +99,5 @@ export default async function RecoverPage({
     );
   }
 
-  return <ClientRecoveryUI payment={payment} />;
+  return <ClientRecoveryUI payment={payment} signature={signature || ""} />;
 }

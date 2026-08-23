@@ -6,8 +6,10 @@ import type { Payment, Customer } from "@prisma/client";
 
 export default function ClientRecoveryUI({
   payment,
+  signature,
 }: {
   payment: Payment & { customer: Customer };
+  signature: string;
 }) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -17,7 +19,7 @@ export default function ClientRecoveryUI({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/recover/${payment.id}`, {
+      const res = await fetch(`/api/recover/${payment.id}?sig=${signature}`, {
         method: "POST",
       });
       const data = await res.json();
@@ -41,9 +43,9 @@ export default function ClientRecoveryUI({
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-8 text-center border-t-4 border-green-500">
           <ShieldCheck className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Simulated Payment Confirmation</h1>
           <p className="text-gray-600 mb-6">
-            ₹{payment.amount.toLocaleString()} has been securely processed.
+            ₹{payment.amount.toLocaleString()} has been marked as recovered for the demo.
           </p>
           <p className="text-sm text-gray-500">You can safely close this page.</p>
         </div>
@@ -119,7 +121,7 @@ export default function ClientRecoveryUI({
             
             <div className="mt-4 flex items-center justify-center text-xs text-gray-400">
               <ShieldCheck className="w-4 h-4 mr-1" />
-              Secured by ReviveAI
+              Simulated Environment
             </div>
           </div>
         </div>

@@ -52,6 +52,26 @@ export class RecoveryEngine {
    * 6. Create initial RecoveryAttempt as PENDING (does not simulate outcome immediately)
    */
   async intake(event: PaymentFailureEvent): Promise<IntakeResult> {
+    // --- Step 0: Idempotency Guard ---
+    const existingPayment = await db.payment.findUnique({
+      where: { externalId: event.externalId },
+      select: { status: true },
+    });
+
+    if (
+      existingPayment &&
+      (existingPayment.status === "RECOVERY_IN_PROGRESS" ||
+        existingPayment.status === "RECOVERED" ||
+        existingPayment.status === "DEAD")
+    ) {
+      return {
+        paymentId: "SKIPPED_DUPLICATE",
+        strategy: "DO_NOTHING",
+        outcome: "STOPPED_BY_RULE",
+        processingTimeMs: 0,
+      };
+    }
+
     // --- Step 1: Persist payment record ---
     const customer = await this.getOrCreateCustomer(event);
     const payment = await db.payment.upsert({
@@ -74,10 +94,10 @@ export class RecoveryEngine {
         failedAt: event.timestamp,
       },
       update: {
-        status: "FAILED",
+        status: existingPayment?.status ?? "FAILED",
         errorCode: event.errorCode,
         errorDescription: event.errorDescription,
-        failedAt: event.timestamp,
+        // failedAt is intentionally omitted here to preserve original failure timestamp
       },
       include: {
         recoveryAttempts: {
@@ -154,11 +174,17 @@ export class RecoveryEngine {
       payment.id,
     );
 
-    // --- Step 3.5: Post-pipeline stopping rules check (e.g. Quiet Hours for CUSTOMER_NUDGE) ---
+    // --- Step 3.5: Evaluate stopping rules POST strategy ---
+    // Update isFraud to include LLM diagnosis (prevent infinite DO_NOTHING loop)
+    let isFraudUpdate = isFraud;
+    if (pipelineResult.diagnosis.category === "FRAUD_BLOCK") {
+        isFraudUpdate = true;
+    }
+
     const postStrategyStopDecision = this.stoppingRules.evaluate(
       event,
       previousAttempts,
-      isFraud,
+      isFraudUpdate,
       pipelineResult.strategy.strategy,
     );
 
@@ -472,11 +498,17 @@ export class RecoveryEngine {
             payment.id,
           );
 
+          // Update isFraud to include LLM diagnosis
+          let isFraudUpdate = isFraud;
+          if (reconstructedDiagnosis.category === "FRAUD_BLOCK") {
+             isFraudUpdate = true;
+          }
+
           // Post-strategy stopping rules check
           const postRetryStopDecision = this.stoppingRules.evaluate(
             event,
             updatedPreviousAttempts,
-            isFraud,
+            isFraudUpdate,
             retryPipelineResult.strategy.strategy,
           );
 

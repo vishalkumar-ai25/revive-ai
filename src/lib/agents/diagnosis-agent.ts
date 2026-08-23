@@ -11,6 +11,7 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { FailureCategory } from "@prisma/client";
+import { z } from "zod";
 import { LLM_CONFIG } from "@/lib/constants";
 import type { DiagnosisResult, DiagnosisSignal, PaymentFailureEvent } from "@/lib/types";
 
@@ -122,15 +123,39 @@ Respond in JSON:
 
     const result = await model.generateContent(prompt);
     const text = result.response.text();
-    const parsed = JSON.parse(text) as DiagnosisResult;
+    const DiagnosisResultSchema = z.object({
+      category: z.enum([
+        "BANK_TIMEOUT",
+        "INSUFFICIENT_FUNDS",
+        "CARD_DECLINED",
+        "NETWORK_ERROR",
+        "UPI_PSP_ERROR",
+        "OTP_EXPIRED",
+        "LIMIT_EXCEEDED",
+        "FRAUD_BLOCK",
+        "MANDATE_EXPIRED",
+        "CHECKOUT_ABANDONED",
+        "SUBSCRIPTION_FAILED",
+        "UNKNOWN",
+      ]),
+      confidence: z.number().min(0).max(1),
+      isRecoverable: z.boolean(),
+      rootCause: z.string(),
+      signals: z.array(
+        z.object({
+          name: z.string(),
+          value: z.string(),
+          weight: z.number(),
+        })
+      ),
+    });
 
-    // Validate the category is a known enum value
-    if (!isValidCategory(parsed.category)) {
-      parsed.category = "UNKNOWN";
-      parsed.confidence = Math.min(parsed.confidence, 0.5);
+    const parsed = DiagnosisResultSchema.safeParse(JSON.parse(text));
+    if (!parsed.success) {
+      throw new Error("Invalid Gemini diagnosis payload");
     }
 
-    return parsed;
+    return parsed.data as DiagnosisResult;
   }
 
   // -------------------------------------------------------------------------
@@ -205,13 +230,4 @@ Respond in JSON:
 
     return rootCauses[category] ?? rootCauses["UNKNOWN"]!;
   }
-}
-
-function isValidCategory(category: string): category is FailureCategory {
-  const valid = new Set([
-    "BANK_TIMEOUT", "INSUFFICIENT_FUNDS", "CARD_DECLINED", "NETWORK_ERROR",
-    "UPI_PSP_ERROR", "OTP_EXPIRED", "LIMIT_EXCEEDED", "FRAUD_BLOCK",
-    "MANDATE_EXPIRED", "CHECKOUT_ABANDONED", "SUBSCRIPTION_FAILED", "UNKNOWN",
-  ]);
-  return valid.has(category);
 }
