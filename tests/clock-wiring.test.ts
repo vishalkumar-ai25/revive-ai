@@ -80,7 +80,7 @@ describe("Clock Wiring Integration", () => {
     const strategy = agent.select(mockEvent, diagnosis, riskAssessment);
     assert.ok(strategy.executionParams.scheduledAt instanceof Date);
     // Scheduled nudge date year must be 2025 matching the virtual clock
-    assert.equal(strategy.executionParams.scheduledAt.getFullYear(), 2025);
+    assert.equal(strategy.executionParams.scheduledAt.getUTCFullYear(), 2025);
   });
 
   it("StoppingRulesEngine evaluates quiet hours using VirtualClock", () => {

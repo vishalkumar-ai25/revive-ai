@@ -1,3 +1,4 @@
+import { toIstHour } from "@/lib/time/ist";
 // =============================================================================
 // STOPPING RULES ENGINE
 // =============================================================================
@@ -69,6 +70,34 @@ export class StoppingRulesEngine {
       };
     }
 
+    // Rule 3b: Maximum ALT_PAYMENT attempts exceeded
+    const altPaymentAttempts = previousAttempts.filter(
+      (a) =>
+        a.strategy === "ALT_PAYMENT" &&
+        (a.outcome === "FAILED" || a.outcome === "SUCCESS"),
+    );
+    if (altPaymentAttempts.length >= STOPPING_RULES.MAX_ALT_PAYMENT_ATTEMPTS) {
+      return {
+        shouldStop: true,
+        rule: "MAX_ALT_PAYMENT_EXCEEDED",
+        reason: `Maximum ${STOPPING_RULES.MAX_ALT_PAYMENT_ATTEMPTS} alternative payment suggestion attempts reached.`,
+      };
+    }
+
+    // Rule 3c: Maximum ESCALATE_MERCHANT attempts exceeded
+    const escalateAttempts = previousAttempts.filter(
+      (a) =>
+        a.strategy === "ESCALATE_MERCHANT" &&
+        (a.outcome === "FAILED" || a.outcome === "SUCCESS"),
+    );
+    if (escalateAttempts.length >= STOPPING_RULES.MAX_ESCALATE_MERCHANT_ATTEMPTS) {
+      return {
+        shouldStop: true,
+        rule: "MAX_ESCALATE_MERCHANT_EXCEEDED",
+        reason: `Maximum ${STOPPING_RULES.MAX_ESCALATE_MERCHANT_ATTEMPTS} merchant escalation attempts reached.`,
+      };
+    }
+
     // Rule 4: Maximum nudge messages exceeded
     // Same reasoning — count delivered nudges only, not scheduled-but-unexecuted ones.
     const nudgeAttempts = previousAttempts.filter(
@@ -123,13 +152,7 @@ export class StoppingRulesEngine {
    * Check if current time is within quiet hours (9PM - 9AM IST).
    */
   private isQuietHours(): boolean {
-    const now = this.clock.now();
-    // Convert to IST (UTC+5:30)
-    const istOffset = 5.5 * 60; // minutes
-    const utcMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-    const istMinutes = utcMinutes + istOffset;
-    const istHour = Math.floor((istMinutes / 60) % 24);
-
+    const istHour = toIstHour(this.clock.now());
     return istHour >= QUIET_HOURS.START_HOUR || istHour < QUIET_HOURS.END_HOUR;
   }
 }

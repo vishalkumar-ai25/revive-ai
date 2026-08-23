@@ -1,3 +1,4 @@
+import { nextIstTime } from "@/lib/time/ist";
 // =============================================================================
 // RECOVERY ENGINE
 // =============================================================================
@@ -719,8 +720,8 @@ return results;
         id: event.customerId,
         email: `customer_${event.customerId.slice(-6)}@example.com`,
         phone: null,
-        totalPurchases: Math.floor(Math.random() * 10),
-        lifetimeValue: Math.floor(Math.random() * 50000),
+        totalPurchases: event.customerTotalPurchases ?? 0,
+        lifetimeValue: event.customerLifetimeValue ?? 0,
       },
     });
   }
@@ -729,15 +730,6 @@ return results;
    * Calculate the next 9:00 AM IST timestamp (returned as UTC Date) from a given date.
    */
   private getNext9AmIst(now: Date): Date {
-    const istOffsetMinutes = 5.5 * 60; // 330 minutes
-    const istTime = new Date(now.getTime() + istOffsetMinutes * 60 * 1000);
-
-    const istYear = istTime.getUTCFullYear();
-    const istMonth = istTime.getUTCMonth();
-    const istDate = istTime.getUTCDate();
-    const istHour = istTime.getUTCHours();
-
-    const targetIstDate = istHour < 9 ? istDate : istDate + 1;
-    return new Date(Date.UTC(istYear, istMonth, targetIstDate, 3, 30, 0, 0));
+    return nextIstTime(now, 9, 0);
   }
 }

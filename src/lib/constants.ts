@@ -12,6 +12,14 @@ import type { EscalationLevel, RecoveryStrategy } from "@prisma/client";
 // ---------------------------------------------------------------------------
 
 export const STOPPING_RULES = {
+  /** Decay factor for retry recovery probability */
+  RETRY_PROBABILITY_DECAY: 0.1,
+
+  /** Maximum number of ALT_PAYMENT attempts */
+  MAX_ALT_PAYMENT_ATTEMPTS: 1,
+
+  /** Maximum number of ESCALATE_MERCHANT attempts */
+  MAX_ESCALATE_MERCHANT_ATTEMPTS: 1,
   /** Maximum number of retry attempts per payment */
   MAX_RETRY_ATTEMPTS: 4,
 

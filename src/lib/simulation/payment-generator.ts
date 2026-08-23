@@ -142,6 +142,8 @@ export class PaymentGenerator {
         ? `mandate_${index.toString().padStart(4, "0")}`
         : null,
       timestamp,
+      customerTotalPurchases: Math.floor(Math.random() * 10),
+      customerLifetimeValue: Math.floor(Math.random() * 50000),
     };
   }
 

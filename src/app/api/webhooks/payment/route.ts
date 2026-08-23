@@ -1,3 +1,4 @@
+import crypto from "crypto";
 // =============================================================================
 // WEBHOOK INGESTION API ROUTE
 // =============================================================================
@@ -38,7 +39,20 @@ const paymentFailureSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const json = await req.json();
+    const rawBody = await req.text();
+    const signature = req.headers.get("X-Razorpay-Signature");
+    const secret = process.env.WEBHOOK_SIGNING_SECRET;
+
+    if (!secret || !signature) {
+      return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
+    }
+
+    const expectedSig = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
+    if (signature.length !== expectedSig.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
+      return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
+    }
+
+    const json = JSON.parse(rawBody);
     const parsed = paymentFailureSchema.safeParse(json);
 
     if (!parsed.success) {

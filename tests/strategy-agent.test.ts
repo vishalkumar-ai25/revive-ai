@@ -111,3 +111,73 @@ describe("StrategyAgent — CUSTOMER_NUDGE Escalation Channel Selection", () => 
     assert.equal(result.executionParams.channel, "sms");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Timezone-Independent Scheduling
+// ---------------------------------------------------------------------------
+
+describe("StrategyAgent — Timezone-Independent Scheduling", () => {
+  it("calculateOptimalRetryTime returns same scheduledAt for UTC noon and IST equivalent", () => {
+    const clockUtc = new VirtualClock(new Date(Date.UTC(2025, 0, 15, 6, 30))); // 12:00 PM IST
+    const agentUtc = new StrategyAgent(clockUtc);
+    
+    // Using a bank with a generic window.
+    const event = createMockEvent({ bank: "HDFC" });
+    const diagnosis = createMockDiagnosis();
+    const risk = { recoveryProbability: 0.9, shouldAttemptRecovery: true, reasoning: "", factors: [] };
+    
+    const strategy = agentUtc.select(event, diagnosis, risk);
+    assert.ok(strategy.executionParams.scheduledAt);
+  });
+
+  it("calculateNudgeTime respects IST quiet hours, not local TZ", () => {
+    // 2:30 PM UTC = 8:00 PM IST
+    const baseTimeUtc = new Date(Date.UTC(2025, 0, 15, 14, 30, 0, 0));
+    const clock = new VirtualClock(baseTimeUtc);
+    const agent = new StrategyAgent(clock);
+
+    const event = createMockEvent();
+    const diagnosis = createMockDiagnosis({ category: "CHECKOUT_ABANDONED" as any });
+    const risk = { recoveryProbability: 0.9, shouldAttemptRecovery: true, reasoning: "", factors: [] };
+
+    // Strategy should be CUSTOMER_NUDGE
+    const strategy = agent.select(event, diagnosis, risk);
+    
+    // Scheduled time would be 2 hours later: 10:00 PM IST (16:30 UTC), which is quiet hours.
+    // So it should push to 9:00 AM IST next day (3:30 AM UTC next day).
+    const scheduled = strategy.executionParams.scheduledAt;
+    assert.ok(scheduled);
+    assert.equal(scheduled.getUTCHours(), 3);
+    assert.equal(scheduled.getUTCMinutes(), 30);
+  });
+
+  it("calculateNudgeTime during IST daytime returns +2h offset", () => {
+    // 8:30 AM UTC = 2:00 PM IST
+    const baseTimeUtc = new Date(Date.UTC(2025, 0, 15, 8, 30, 0, 0));
+    const clock = new VirtualClock(baseTimeUtc);
+    const agent = new StrategyAgent(clock);
+
+    const event = createMockEvent();
+    const diagnosis = createMockDiagnosis({ category: "CHECKOUT_ABANDONED" as any });
+    const risk = { recoveryProbability: 0.9, shouldAttemptRecovery: true, reasoning: "", factors: [] };
+
+    const strategy = agent.select(event, diagnosis, risk);
+    
+    // Scheduled time would be 2 hours later: 4:00 PM IST (10:30 UTC).
+    const scheduled = strategy.executionParams.scheduledAt;
+    assert.ok(scheduled);
+    assert.equal(scheduled.getUTCHours(), 10);
+    assert.equal(scheduled.getUTCMinutes(), 30);
+  });
+});
+
+function createMockDiagnosis(overrides: any = {}): any {
+  return {
+    category: "BANK_TIMEOUT",
+    isRecoverable: true,
+    confidence: 0.9,
+    rootCause: "Test cause",
+    signals: [],
+    ...overrides
+  };
+}

@@ -305,3 +305,63 @@ describe("StoppingRulesEngine — Outcome Filtering for Rules 3 & 4", () => {
     assert.equal(decision.rule, null);
   });
 });
+
+// ---------------------------------------------------------------------------
+// ALT_PAYMENT & ESCALATE_MERCHANT Caps
+// ---------------------------------------------------------------------------
+
+describe("StoppingRulesEngine — ALT_PAYMENT & ESCALATE_MERCHANT Caps", () => {
+  const baseTime = new Date("2025-01-15T05:00:00.000Z");
+
+  it("1x ALT_PAYMENT FAILED → Rule fires (MAX_ALT_PAYMENT_ATTEMPTS=1)", () => {
+    const clock = new VirtualClock(baseTime);
+    const engine = new StoppingRulesEngine(clock);
+    const event = createMockEvent({ timestamp: baseTime });
+
+    const previousAttempts = [
+      { attemptNumber: 1, strategy: "ALT_PAYMENT" as const, outcome: "FAILED" as const },
+    ];
+
+    const decision = engine.evaluate(event, previousAttempts, false);
+    assert.equal(decision.shouldStop, true);
+    assert.equal(decision.rule, "MAX_ALT_PAYMENT_EXCEEDED");
+  });
+
+  it("0x ALT_PAYMENT attempts → Rule does NOT fire", () => {
+    const clock = new VirtualClock(baseTime);
+    const engine = new StoppingRulesEngine(clock);
+    const event = createMockEvent({ timestamp: baseTime });
+
+    const decision = engine.evaluate(event, [], false);
+    assert.equal(decision.shouldStop, false);
+    assert.equal(decision.rule, null);
+  });
+
+  it("1x ESCALATE_MERCHANT FAILED → Rule fires", () => {
+    const clock = new VirtualClock(baseTime);
+    const engine = new StoppingRulesEngine(clock);
+    const event = createMockEvent({ timestamp: baseTime });
+
+    const previousAttempts = [
+      { attemptNumber: 1, strategy: "ESCALATE_MERCHANT" as const, outcome: "FAILED" as const },
+    ];
+
+    const decision = engine.evaluate(event, previousAttempts, false);
+    assert.equal(decision.shouldStop, true);
+    assert.equal(decision.rule, "MAX_ESCALATE_MERCHANT_EXCEEDED");
+  });
+
+  it("1x ALT_PAYMENT PENDING → Rule does NOT fire (only executed attempts count)", () => {
+    const clock = new VirtualClock(baseTime);
+    const engine = new StoppingRulesEngine(clock);
+    const event = createMockEvent({ timestamp: baseTime });
+
+    const previousAttempts = [
+      { attemptNumber: 1, strategy: "ALT_PAYMENT" as const, outcome: "PENDING" as const },
+    ];
+
+    const decision = engine.evaluate(event, previousAttempts, false);
+    assert.equal(decision.shouldStop, false);
+    assert.equal(decision.rule, null);
+  });
+});

@@ -104,10 +104,18 @@ export class RiskAssessmentAgent {
     });
 
     // --- Calculate Weighted Score ---
-    const recoveryProbability = factors.reduce(
+    let recoveryProbability = factors.reduce(
       (sum, factor) => sum + factor.score * factor.weight,
       0,
     );
+
+    // --- Apply Decay for Repeated Attempts ---
+    // Decay: each prior failure drastically reduces subsequent recovery probability (multiplicative).
+    // Rationale: real payment failures are NOT independent Bernoulli trials.
+    // Decay factor 0.1 ensures 4-attempt compound recovery for a high-base-rate
+    // category stays realistic (e.g. 76% on attempt 1, ~78% cumulative) rather than approaching 100%.
+    const decayFactor = Math.pow(STOPPING_RULES.RETRY_PROBABILITY_DECAY, customerHistory.previousFailures);
+    recoveryProbability = Math.max(0, Math.min(1, recoveryProbability * decayFactor));
 
     // --- Apply Stopping Rules ---
     const shouldAttemptRecovery = this.shouldAttempt(

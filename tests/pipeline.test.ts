@@ -43,7 +43,7 @@ function createMockEvent(overrides: Partial<PaymentFailureEvent> = {}): PaymentF
 const mockCustomerHistory: CustomerHistory = {
   totalPurchases: 8,
   lifetimeValue: 18500,
-  previousFailures: 1,
+  previousFailures: 0,
   daysSinceLastPurchase: 14,
 };
 

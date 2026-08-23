@@ -32,6 +32,8 @@ export interface PaymentFailureEvent {
   subscriptionId: string | null;
   mandateId: string | null;
   timestamp: Date;
+  customerTotalPurchases?: number;
+  customerLifetimeValue?: number;
 }
 
 /** Output of the Diagnosis Agent. */
@@ -82,8 +84,6 @@ export interface ExecutionParams {
   channel: "email" | "sms" | "onscreen" | "merchant_dashboard" | null;
   /** Generated message content for customer nudges */
   messageContent: string | null;
-  /** Maximum number of retry attempts for this strategy */
-  maxRetries: number;
   /** Suggested alternative payment method (for ALT_PAYMENT strategy) */
   alternativeMethod: PaymentMethod | null;
   /** Current escalation level */

@@ -15,12 +15,11 @@ export async function POST(
     
     const secret = process.env.RECOVERY_LINK_HMAC_SECRET;
     if (!secret) {
-      console.error("RECOVERY_LINK_HMAC_SECRET is missing from environment");
-      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+      return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
     }
     const expectedSig = crypto.createHmac("sha256", secret).update(paymentId).digest("hex");
 
-    if (!sig || sig !== expectedSig) {
+    if (!sig || sig.length !== expectedSig.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
     }
     

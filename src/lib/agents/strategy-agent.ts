@@ -18,7 +18,6 @@
 import type { EscalationLevel, PaymentMethod, RecoveryStrategy } from "@prisma/client";
 import {
   BANK_RETRY_WINDOWS,
-  MANDATE_RULES,
   STRATEGY_WEIGHTS,
 } from "@/lib/constants";
 import {
@@ -34,6 +33,7 @@ import type {
 } from "@/lib/types";
 import { type Clock, SystemClock } from "@/lib/time/clock";
 import { MandateRetrySequencer } from "./mandate-sequencer";
+import { toIstHour, nextIstTime } from "@/lib/time/ist";
 
 // ---------------------------------------------------------------------------
 // Alternative method mapping — what to suggest when a method fails
@@ -117,7 +117,6 @@ export class StrategyAgent {
             channel: "email",
             messageContent:
               "Your recurring payment mandate has expired or was revoked. Please re-authorize your payment method to continue your subscription.",
-            maxRetries: 1,
             alternativeMethod: ALT_METHOD_MAP[event.method] ?? "UPI",
             escalationLevel: currentEscalationLevel(hours),
             mandateSchedule: null,
@@ -142,7 +141,6 @@ export class StrategyAgent {
               schedule.strategy === "ALT_PAYMENT"
                 ? `Mandate retry fallback: Please complete your subscription payment using ${schedule.rail === "ON_DEMAND_LINK" ? "a direct payment link" : schedule.rail}.`
                 : null,
-            maxRetries: MANDATE_RULES.MAX_ATTEMPTS,
             alternativeMethod:
               schedule.rail === "ON_DEMAND_LINK"
                 ? (ALT_METHOD_MAP[event.method] ?? "UPI")
@@ -173,7 +171,6 @@ export class StrategyAgent {
               strategy === "ESCALATE_MERCHANT"
                 ? `Mandate recovery halted (${mandateResult.terminationReason ?? "max attempts exceeded"}). Manual merchant intervention required.`
                 : null,
-            maxRetries: 0,
             alternativeMethod: null,
             escalationLevel:
               strategy === "ESCALATE_MERCHANT"
@@ -263,7 +260,6 @@ export class StrategyAgent {
       scheduledAt: null,
       channel: null,
       messageContent: null,
-      maxRetries: 1,
       alternativeMethod: null,
       escalationLevel: "LEVEL_1_ONSCREEN" as EscalationLevel,
     };
@@ -274,7 +270,6 @@ export class StrategyAgent {
           ...base,
           scheduledAt: this.calculateOptimalRetryTime(event),
           channel: "onscreen",
-          maxRetries: 3,
           messageContent: `Your payment of ₹${event.amount} didn't go through. We'll retry at a better time.`,
         };
 
@@ -296,7 +291,6 @@ export class StrategyAgent {
           channel,
           escalationLevel,
           messageContent: this.generateNudgeMessage(event, diagnosis),
-          maxRetries: 1,
         };
       }
 
@@ -306,7 +300,6 @@ export class StrategyAgent {
           channel: "onscreen",
           alternativeMethod: ALT_METHOD_MAP[event.method] ?? "UPI",
           messageContent: `Your ${event.method} payment didn't go through. Try paying with ${ALT_METHOD_MAP[event.method] ?? "UPI"} instead.`,
-          maxRetries: 1,
         };
 
       case "ESCALATE_MERCHANT":
@@ -315,7 +308,6 @@ export class StrategyAgent {
           channel: "merchant_dashboard",
           escalationLevel: "LEVEL_4_MERCHANT_ALERT" as EscalationLevel,
           messageContent: `High-value recovery opportunity: Customer attempted ₹${event.amount} payment ${event.isRecurring ? "(recurring)" : ""} — failed due to ${diagnosis.rootCause}. Manual follow-up recommended.`,
-          maxRetries: 0,
         };
 
       case "DO_NOTHING":
@@ -337,44 +329,38 @@ export class StrategyAgent {
     const window = BANK_RETRY_WINDOWS[bank] ?? BANK_RETRY_WINDOWS["DEFAULT"]!;
 
     const now = this.clock.now();
-    const retryDate = new Date(now);
+    const istHour = toIstHour(now);
 
-    // If current hour is in the avoid window or before best window, schedule for next best window
-    const currentHour = now.getHours();
+    // If current IST hour is in the avoid window or outside best window
     if (
-      window.avoidHours.includes(currentHour) ||
-      currentHour < window.bestHourStart ||
-      currentHour > window.bestHourEnd
+      window.avoidHours.includes(istHour) ||
+      istHour < window.bestHourStart ||
+      istHour > window.bestHourEnd
     ) {
-      // Schedule for the middle of the best window tomorrow
-      retryDate.setDate(retryDate.getDate() + (currentHour > window.bestHourEnd ? 1 : 0));
-      retryDate.setHours(
-        Math.floor((window.bestHourStart + window.bestHourEnd) / 2),
-        15,
-        0,
-        0,
-      );
-    } else {
-      // We're in the good window — retry in 30 minutes
-      retryDate.setMinutes(retryDate.getMinutes() + 30);
+      // Schedule for the middle of the best window
+      const targetHour = Math.floor((window.bestHourStart + window.bestHourEnd) / 2);
+      return nextIstTime(now, targetHour, 15);
     }
 
-    return retryDate;
+    // Otherwise schedule soon, but slightly randomized within the next hour
+    return new Date(now.getTime() + (10 + Math.random() * 50) * 60000);
   }
 
   /** Calculate nudge time — 2 hours from now, but respect quiet hours. */
   private calculateNudgeTime(): Date {
-    const nudge = this.clock.now();
-    nudge.setHours(nudge.getHours() + 2);
+    const now = this.clock.now();
+    
+    // Nudges wait 2 hours from current time
+    const scheduledTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    const scheduledIstHour = toIstHour(scheduledTime);
 
-    // If nudge would land in quiet hours (9PM-9AM), push to 9AM
-    const nudgeHour = nudge.getHours();
-    if (nudgeHour >= 21 || nudgeHour < 9) {
-      nudge.setDate(nudge.getDate() + (nudgeHour >= 21 ? 1 : 0));
-      nudge.setHours(9, 0, 0, 0);
+    // If the scheduled time falls in quiet hours (9 PM - 9 AM IST),
+    // push it to 9 AM IST the following morning.
+    if (scheduledIstHour >= 21 || scheduledIstHour < 9) {
+      return nextIstTime(now, 9, 0);
     }
 
-    return nudge;
+    return scheduledTime;
   }
 
   // -------------------------------------------------------------------------

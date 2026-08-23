@@ -138,3 +138,32 @@ describe("RiskAssessmentAgent — Hard Stopping Rules", () => {
     assert.equal(result.shouldAttemptRecovery, false);
   });
 });
+
+describe("RiskAssessmentAgent — Probability Decay", () => {
+  const agent = new RiskAssessmentAgent();
+
+  it("recoveryProbability strictly decreases as previousFailures increases", () => {
+    const event = createMockEvent({ amount: 5000 });
+    const diagnosis = createMockDiagnosis();
+    
+    let lastProb = 1.0;
+    for (let failures = 0; failures <= 3; failures++) {
+      const customer = { ...defaultCustomer, previousFailures: failures };
+      const result = agent.assess(event, diagnosis, customer);
+      assert.ok(result.recoveryProbability < lastProb || failures === 0);
+      lastProb = result.recoveryProbability;
+    }
+  });
+
+  it("Decay is multiplicative: probability at previousFailures=2 equals probability at 0 * decayFactor^2", () => {
+    const event = createMockEvent({ amount: 5000 });
+    const diagnosis = createMockDiagnosis();
+    
+    const result0 = agent.assess(event, diagnosis, { ...defaultCustomer, previousFailures: 0 });
+    const result2 = agent.assess(event, diagnosis, { ...defaultCustomer, previousFailures: 2 });
+    
+    // The exact calculation will be rounded to 2 decimal places inside assess(), so check approximately
+    const expected = result0.recoveryProbability * Math.pow(0.1, 2);
+    assert.ok(Math.abs(result2.recoveryProbability - expected) < 0.02);
+  });
+});

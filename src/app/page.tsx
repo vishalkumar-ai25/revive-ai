@@ -115,7 +115,7 @@ export default function Dashboard() {
               <ul className="space-y-2.5 text-xs text-slate-300">
                 <li className="flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                  <span>Max 4 Retries with Exponential Backoff</span>
+                  <span>Max 4 Retries with Bank-Optimal Window Scheduling</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-emerald-400" />

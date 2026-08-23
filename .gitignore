@@ -41,3 +41,9 @@ coverage/
 
 # OS
 Thumbs.db
+
+# Simulation data dumps (use benchmark reports instead)
+docs/simulation_full_data.json
+docs/simulation_dump.sql
+docs/simulate_100_clean.txt
+docs/simulate_50_baseline.txt
