@@ -285,14 +285,43 @@ export class RecoveryEngine {
    */
 
   async tick(asOf: Date): Promise<TickResult[]> {
+    // -----------------------------------------------------------------------
+    // Step 1: Atomic claim via CTE — SELECT FOR UPDATE SKIP LOCKED + UPDATE
+    // -----------------------------------------------------------------------
+    // A single SQL statement that:
+    //   1. Selects PENDING, unclaimed, due attempts (joined with RECOVERY_IN_PROGRESS payments)
+    //   2. Locks them with FOR UPDATE SKIP LOCKED (concurrent callers skip already-locked rows)
+    //   3. Atomically sets claimedAt = NOW() on the selected rows
+    //   4. Returns the claimed IDs
+    // This prevents two concurrent tick() calls from processing the same attempts.
+    const claimedRows = await db.$queryRaw<{ id: string }[]>`
+      WITH due AS (
+        SELECT ra.id
+        FROM recovery_attempts ra
+        JOIN payments p ON ra."paymentId" = p.id
+        WHERE ra.outcome = 'PENDING'
+          AND ra."claimedAt" IS NULL
+          AND (ra."scheduledAt" IS NULL OR ra."scheduledAt" <= ${asOf})
+          AND p.status = 'RECOVERY_IN_PROGRESS'
+        ORDER BY ra."createdAt" ASC
+        LIMIT 20
+        FOR UPDATE OF ra SKIP LOCKED
+      )
+      UPDATE recovery_attempts
+      SET "claimedAt" = NOW(), "updatedAt" = NOW()
+      FROM due
+      WHERE recovery_attempts.id = due.id
+      RETURNING recovery_attempts.id
+    `;
+
+    if (claimedRows.length === 0) return [];
+
+    // -----------------------------------------------------------------------
+    // Step 2: Load full relational data via Prisma for claimed IDs
+    // -----------------------------------------------------------------------
+    const claimedIds = claimedRows.map(r => r.id);
     const dueAttempts = await db.recoveryAttempt.findMany({
-      where: {
-        outcome: "PENDING",
-        OR: [{ scheduledAt: null }, { scheduledAt: { lte: asOf } }],
-        payment: {
-          status: "RECOVERY_IN_PROGRESS",
-        },
-      },
+      where: { id: { in: claimedIds } },
       include: {
         payment: {
           include: {
@@ -307,23 +336,15 @@ export class RecoveryEngine {
       orderBy: { createdAt: "asc" },
     });
 
-    const results: TickResult[] = [];
+    // -----------------------------------------------------------------------
+    // Step 3: Process claimed attempts (no chunking needed — already limited
+    // to 20 by SQL LIMIT; chunk size matches claim batch size)
+    // -----------------------------------------------------------------------
+    const results = await Promise.all(
+      dueAttempts.map((dueAttempt) => this.processDueAttempt(dueAttempt, asOf))
+    );
 
-    const chunkArray = <T>(arr: T[], size: number): T[][] =>
-      Array.from({ length: Math.ceil(arr.length / size) }, (_v, i) =>
-        arr.slice(i * size, i * size + size)
-      );
-
-    const attemptChunks = chunkArray(dueAttempts, 20);
-
-    for (const chunk of attemptChunks) {
-      const chunkResults = await Promise.all(
-        chunk.map((dueAttempt) => this.processDueAttempt(dueAttempt, asOf))
-      );
-      results.push(...chunkResults.filter((r): r is TickResult => r !== null));
-    }
-
-    return results;
+    return results.filter((r): r is TickResult => r !== null);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

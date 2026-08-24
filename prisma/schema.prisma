@@ -95,6 +95,7 @@ model RecoveryAttempt {
   escalationLevel EscalationLevel
   outcome         RecoveryOutcome  @default(PENDING)
   scheduledAt     DateTime?
+  claimedAt       DateTime?        /// Set atomically by tick() via SELECT FOR UPDATE SKIP LOCKED
   executedAt      DateTime?
   channel         String?
   messageContent  String?
@@ -105,6 +106,7 @@ model RecoveryAttempt {
 
   @@index([paymentId])
   @@index([outcome])
+  @@index([outcome, claimedAt, scheduledAt])
   @@map("recovery_attempts")
 }
 
