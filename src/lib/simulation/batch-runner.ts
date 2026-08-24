@@ -355,6 +355,14 @@ async function main() {
   const runner = new BatchRunner(merchant.id);
   await runner.run(count);
 
+  const stuckPending = await db.recoveryAttempt.count({
+    where: {
+      outcome: "PENDING",
+      payment: { status: "RECOVERY_IN_PROGRESS" }
+    }
+  });
+  console.log(`\n  ⚠️  STUCK PENDING ATTEMPTS (After Simulation): ${stuckPending}\n`);
+
   await db.$disconnect();
 }
 

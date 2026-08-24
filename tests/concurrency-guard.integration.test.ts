@@ -11,6 +11,8 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { PrismaClient } from "@prisma/client";
+import { RecoveryEngine } from "../src/lib/engine/recovery-engine";
+import { VirtualClock } from "../src/lib/time/clock";
 
 // ---------------------------------------------------------------------------
 // Safety guard: refuse to run against non-local databases
@@ -232,5 +234,78 @@ describe("Concurrency Guard — Row-Level Locking Integration Test", { skip: !is
       0,
       "No rows should be available for claiming after all have been claimed",
     );
+  });
+
+  it("Regression: Quiet hours deferral resets claimedAt to null so it can be picked up later", async () => {
+    // 1. Create a fresh payment just for this test
+    const payment = await db.payment.create({
+      data: {
+        externalId: `${TEST_TAG}_quiet_hours`,
+        merchantId,
+        customerId,
+        amount: 999,
+        currency: "INR",
+        method: "UPI",
+        bank: "HDFC",
+        status: "RECOVERY_IN_PROGRESS",
+        errorCode: "BANK_TIMEOUT",
+        failedAt: new Date(),
+      },
+    });
+    paymentIds.push(payment.id);
+
+    // 2. Seed a CUSTOMER_NUDGE attempt (strategy that triggers quiet hours) 
+    // that is due NOW but hasn't been claimed yet.
+    const attempt = await db.recoveryAttempt.create({
+      data: {
+        paymentId: payment.id,
+        attemptNumber: 1,
+        strategy: "CUSTOMER_NUDGE",
+        escalationLevel: "LEVEL_1_ONSCREEN",
+        outcome: "PENDING",
+        scheduledAt: new Date(Date.UTC(2025, 0, 15, 16, 29, 0)), // Due 1 minute before quietTime
+        claimedAt: null, // Ready to claim
+      },
+    });
+    attemptIds.push(attempt.id);
+
+    // 3. Set clock to 10 PM IST (16:30 UTC), which is squarely in quiet hours (9 PM - 9 AM)
+    const quietTime = new Date(Date.UTC(2025, 0, 15, 16, 30, 0));
+    const clock = new VirtualClock(quietTime);
+    const engine = new RecoveryEngine(clock);
+
+    // 4. Run tick() - this will claim the row and then defer it due to quiet hours
+    await engine.tick(quietTime);
+
+    // 5. Assert the row was updated to next 9 AM IST and claimedAt was reset to null
+    const deferredAttempt = await db.recoveryAttempt.findUniqueOrThrow({
+      where: { id: attempt.id }
+    });
+    assert.equal(deferredAttempt.outcome, "PENDING", "Should still be PENDING");
+    assert.equal(deferredAttempt.claimedAt, null, "claimedAt must be reset to null");
+    
+    // next 9 AM IST on Jan 15 16:30 UTC is Jan 16 03:30 UTC
+    const next9AmUtc = new Date(Date.UTC(2025, 0, 16, 3, 30, 0));
+    assert.equal(deferredAttempt.scheduledAt?.getTime(), next9AmUtc.getTime(), "Should be deferred to 9 AM IST");
+
+    // 6. Fast forward clock to 9:01 AM IST
+    const morningTime = new Date(Date.UTC(2025, 0, 16, 3, 31, 0));
+    clock.advance(10.5); // Advance 10.5 hours from 16:30 to 03:00 next day? No, wait. 16:30 to 03:31 is 11 hours and 1 minute.
+    // Better: just instantiate a new engine for the new time, or recreate clock.
+    const morningClock = new VirtualClock(morningTime);
+    const morningEngine = new RecoveryEngine(morningClock);
+    
+    // 7. Tick again - since claimedAt is null, it should be successfully claimed and processed now
+    const results = await morningEngine.tick(morningTime);
+    
+    // Should have processed this payment
+    const processedOurPayment = results.some(r => r.paymentId === payment.id);
+    assert.ok(processedOurPayment, "Attempt should be picked up and processed after quiet hours end");
+    
+    // Check outcome is no longer PENDING
+    const finalAttempt = await db.recoveryAttempt.findUniqueOrThrow({
+      where: { id: attempt.id }
+    });
+    assert.notEqual(finalAttempt.outcome, "PENDING", "Attempt should be fully executed");
   });
 });

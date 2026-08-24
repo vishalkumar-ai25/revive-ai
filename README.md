@@ -165,6 +165,8 @@ ReviveAI is built specifically to address the criteria defined in **Track 03 —
 | **2. Compliant escalation ladder** | 5-level progressive contact ladder (`On-screen` $\to$ `Email` $\to$ `SMS` $\to$ `Merchant Alert` $\to$ `Dead stop`). | `npx tsx --test tests/multi-attempt-lifecycle.test.ts` |
 | **3. Strict stopping rules** | Pure rule engine enforcing 4-retry cap, 3-nudge cap, quiet hours (9 PM–9 AM IST), and zero-tolerance fraud blocks. | `npx tsx --test tests/stopping-rules.test.ts` |
 | **4. Immutable audit trail** | Immutable `audit_logs` table storing every agent's step-by-step chain-of-thought, decision factors, and timestamps. | `npx tsx --test tests/pipeline.test.ts` |
+| **5. Concurrency Guard** | Atomic CTE with row-level locking (`SELECT FOR UPDATE SKIP LOCKED`) prevents double-processing during concurrent background jobs. | `npx tsx --test tests/concurrency-guard.integration.test.ts` |
+
 
 ---
 
@@ -193,14 +195,14 @@ Run the complete test suite verifying all 5 agents, escalation ladders, mandate 
 npm test
 ```
 
-```
-ℹ tests 120
-ℹ suites 33
-ℹ pass 120
-ℹ fail 0
-ℹ cancelled 0
-ℹ skipped 0
-ℹ duration_ms 608.56ms
+```text
+# tests 145
+# suites 34
+# pass 145
+# fail 0
+# cancelled 0
+# skipped 0
+# duration_ms 608.56ms
 ```
 
 ---

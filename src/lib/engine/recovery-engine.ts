@@ -659,7 +659,7 @@ export class RecoveryEngine {
             ? {
                 update: {
                   where: { id: attemptId },
-                  data: { scheduledAt: next9Am },
+                  data: { scheduledAt: next9Am, claimedAt: null },
                 },
               }
             : {
