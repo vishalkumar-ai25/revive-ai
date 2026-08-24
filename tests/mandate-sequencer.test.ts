@@ -78,7 +78,7 @@ describe("MandateRetrySequencer — Unit Tests", () => {
 
     assert.equal(result.shouldRetry, true);
     assert.equal(result.isExpiredMandate, false);
-    assert.ok(result.schedule !== null);
+    assert.ok(result.schedule !== null, "T+0 schedule must be produced");
     assert.equal(result.schedule.attemptNumber, 1);
     assert.equal(result.schedule.rail, "UPI_AUTOPAY");
     assert.equal(result.schedule.strategy, "SMART_RETRY");
@@ -103,7 +103,7 @@ describe("MandateRetrySequencer — Unit Tests", () => {
     const result = sequencer.evaluate(event, mockDiagnosis, 1);
 
     assert.equal(result.shouldRetry, true);
-    assert.ok(result.schedule !== null);
+    assert.ok(result.schedule !== null, "T+48h schedule must be produced");
     assert.equal(result.schedule.attemptNumber, 2);
     assert.equal(result.schedule.rail, "UPI_AUTOPAY");
     assert.equal(result.schedule.strategy, "SMART_RETRY");
@@ -133,7 +133,7 @@ describe("MandateRetrySequencer — Unit Tests", () => {
     const result = sequencer.evaluate(event, mockDiagnosis, 2);
 
     assert.equal(result.shouldRetry, true);
-    assert.ok(result.schedule !== null);
+    assert.ok(result.schedule !== null, "T+96h schedule must be produced");
     assert.equal(result.schedule.attemptNumber, 3);
     assert.equal(result.schedule.rail, "E_NACH");
     assert.equal(result.schedule.strategy, "SMART_RETRY");
@@ -163,7 +163,7 @@ describe("MandateRetrySequencer — Unit Tests", () => {
     const result = sequencer.evaluate(event, mockDiagnosis, 3);
 
     assert.equal(result.shouldRetry, true);
-    assert.ok(result.schedule !== null);
+    assert.ok(result.schedule !== null, "T+144h schedule must be produced");
     assert.equal(result.schedule.attemptNumber, 4);
     assert.equal(result.schedule.rail, "ON_DEMAND_LINK");
     assert.equal(result.schedule.strategy, "ALT_PAYMENT");
@@ -261,8 +261,14 @@ describe("MandateRetrySequencer — Unit Tests", () => {
     const result = sequencer.evaluate(event, mockDiagnosis, 0);
 
     assert.equal(result.shouldRetry, true);
-    assert.ok(result.schedule !== null);
+    assert.ok(result.schedule !== null, "Card autodebit T+0 schedule must be produced");
     assert.equal(result.schedule.rail, "CARD_AUTODEBIT");
+    // T+0 is immediate — scheduledAt must equal failureTime (no bank window alignment for attempt 1)
+    assert.equal(
+      result.schedule.scheduledAt.getTime(),
+      failureTime.getTime(),
+      "T+0 card autodebit should schedule at failure time",
+    );
   });
 });
 
@@ -281,9 +287,15 @@ describe("StrategyAgent — Mandate Routing Integration", () => {
     const result = agent.select(event, mockDiagnosis, mockRiskAssessment);
 
     assert.equal(result.strategy, "SMART_RETRY");
-    assert.ok(result.executionParams.mandateSchedule !== null);
+    assert.ok(result.executionParams.mandateSchedule !== null, "T+0 mandateSchedule must be produced");
     assert.equal(result.executionParams.mandateSchedule?.attemptNumber, 1);
     assert.equal(result.executionParams.mandateSchedule?.rail, "UPI_AUTOPAY");
+    // T+0 mandate should schedule at failure time (immediate, no bank window alignment)
+    assert.equal(
+      result.executionParams.mandateSchedule?.scheduledAt.getTime(),
+      failureTime.getTime(),
+      "T+0 mandate should schedule at failure time",
+    );
   });
 
   it("Routes recurring mandate to SMART_RETRY with E_NACH rail at T+96h", () => {
@@ -295,9 +307,14 @@ describe("StrategyAgent — Mandate Routing Integration", () => {
     const result = agent.select(event, mockDiagnosis, mockRiskAssessment, 96);
 
     assert.equal(result.strategy, "SMART_RETRY");
-    assert.ok(result.executionParams.mandateSchedule !== null);
+    assert.ok(result.executionParams.mandateSchedule !== null, "T+96h mandateSchedule must be produced");
     assert.equal(result.executionParams.mandateSchedule?.attemptNumber, 3);
     assert.equal(result.executionParams.mandateSchedule?.rail, "E_NACH");
+    // 10:15 AM IST = 04:45 UTC on Jan 19 (T+96h from Jan 15 failure, bank window aligned)
+    const scheduledT96 = result.executionParams.mandateSchedule!.scheduledAt;
+    assert.equal(scheduledT96.getUTCHours(), 4, "T+96h should target 04:45 UTC (10:15 AM IST)");
+    assert.equal(scheduledT96.getUTCMinutes(), 45, "T+96h should target 04:45 UTC (10:15 AM IST)");
+    assert.equal(scheduledT96.getUTCDate(), 19, "T+96h should land on Jan 19");
   });
 
   it("Routes recurring mandate to ALT_PAYMENT with ON_DEMAND_LINK at T+144h", () => {
@@ -309,10 +326,15 @@ describe("StrategyAgent — Mandate Routing Integration", () => {
     const result = agent.select(event, mockDiagnosis, mockRiskAssessment, 144);
 
     assert.equal(result.strategy, "ALT_PAYMENT");
-    assert.ok(result.executionParams.mandateSchedule !== null);
+    assert.ok(result.executionParams.mandateSchedule !== null, "T+144h mandateSchedule must be produced");
     assert.equal(result.executionParams.mandateSchedule?.attemptNumber, 4);
     assert.equal(result.executionParams.mandateSchedule?.rail, "ON_DEMAND_LINK");
     assert.equal(result.executionParams.channel, "email");
+    // 10:15 AM IST = 04:45 UTC on Jan 21 (T+144h from Jan 15 failure, bank window aligned)
+    const scheduledT144 = result.executionParams.mandateSchedule!.scheduledAt;
+    assert.equal(scheduledT144.getUTCHours(), 4, "T+144h should target 04:45 UTC (10:15 AM IST)");
+    assert.equal(scheduledT144.getUTCMinutes(), 45, "T+144h should target 04:45 UTC (10:15 AM IST)");
+    assert.equal(scheduledT144.getUTCDate(), 21, "T+144h should land on Jan 21");
   });
 
   it("Routes expired mandate to ALT_PAYMENT re-authorization workflow", () => {

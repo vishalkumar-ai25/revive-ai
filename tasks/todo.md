@@ -184,3 +184,19 @@
   - Description: Update `README.md` and commit final code to GitHub `main`.
   - Acceptance: Clean git status, pushed to GitHub.
   - Verify: `git status && git push`.
+
+---
+
+## Phase 8: Concurrency Guard + Test Assertion Audit
+
+- [ ] **Task 8.1: Test Assertion Audit — `mandate-sequencer.test.ts`**
+  - Description: Upgrade 8 weak `assert.ok(... !== null)` existence checks to value assertions. 4 are idiomatic cleanups (already have follow-up value assertions); 4 are genuinely weak and need `scheduledAt` UTC hour/minute/date assertions derived from the 10:15 AM IST = 04:45 UTC requirement.
+  - Acceptance: All 120 tests pass; mutation test (break IST math → test fails → revert) proves the upgraded assertions detect the class of bug they're meant to catch.
+  - Verify: `npm test && npm run typecheck && npm run lint`.
+  - Files: `tests/mandate-sequencer.test.ts`.
+
+- [ ] **Task 8.2: Concurrency Guard — Row-Level Locking for `tick()`**
+  - Description: Add `claimedAt DateTime?` to `RecoveryAttempt` schema. Replace `tick()`'s `findMany` with atomic `SELECT FOR UPDATE SKIP LOCKED` + `UPDATE` CTE via `db.$queryRaw`. Load full relational data via Prisma for claimed IDs. Create first live-database integration test proving zero overlap under concurrent claims.
+  - Acceptance: Concurrent claim test passes reliably (5 consecutive runs). Full existing suite unchanged. `npm run simulate 1000` produces benchmark numbers in expected range.
+  - Verify: `npm test && npm run typecheck && npm run lint && npm run simulate 1000`.
+  - Files: `prisma/schema.prisma`, `src/lib/engine/recovery-engine.ts`, `tests/concurrency-guard.integration.test.ts`.
