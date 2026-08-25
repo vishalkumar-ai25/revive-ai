@@ -19,7 +19,7 @@ In the Indian digital payments ecosystem, revenue loss rarely occurs in a single
 ### 1.2 The ReviveAI Solution
 ReviveAI is an autonomous, rule-bounded multi-agent revenue recovery engine that:
 - **Detects revenue at risk in real time** across one-time payments, checkout drop-offs, subscriptions, and auto-debit mandates.
-- **Intelligently diagnoses root causes** using LLM reasoning (Gemini 2.0 Flash) combined with high-precision deterministic rules and bank health telemetry.
+- **Intelligently diagnoses root causes** using LLM reasoning (Gemini 2.0 Flash) combined with high-precision deterministic rules.
 - **Selects and schedules optimal interventions:** Smart Bank-Timed Retries, Privacy-Preserving Customer Nudges, Alternative Payment Rail Suggestions, Merchant Escalation, and RBI-Compliant Mandate Retry Sequences.
 - **Enforces strict, bounded stopping rules and compliance guardrails:** Hard limits on retry attempts (max 4), customer nudges (max 3), 72-hour recovery windows, quiet hours (9 PM – 9 AM IST for customer-facing outreach only), zero retries on fraud blocks, and customer opt-out respect.
 - **Drives a dynamic multi-attempt escalation ladder** through an injectable virtual clock ($T+0 \rightarrow T+1\text{h} \rightarrow T+24\text{h} \rightarrow T+48\text{h} \rightarrow T+72\text{h}$).
@@ -88,7 +88,7 @@ Every decision made by any agent is logged as an immutable record in `audit_logs
 - Agent Name (`DiagnosisAgent`, `RiskAssessmentAgent`, `StrategyAgent`, `MandateSequencer`, `StoppingRulesEngine`, `RecoveryEngine`)
 - Action Triggered (e.g., `DIAGNOSIS_COMPLETE`, `RISK_ASSESSED`, `STRATEGY_SELECTED`, `RETRY_SCHEDULED`, `RECOVERY_STOPPED`)
 - Reasoning Chain-of-Thought (Plain English justification for the decision)
-- Structured Metadata (Probability scores, confidence values, bank health telemetry, execution parameters)
+- Structured Metadata (Probability scores, confidence values, execution parameters)
 - Visual timeline presentation in the Merchant Dashboard with expandable JSON payload inspection.
 - **Optimized Persistence:** Eliminates N+1 DB lookup by directly utilizing `paymentId` foreign key.
 

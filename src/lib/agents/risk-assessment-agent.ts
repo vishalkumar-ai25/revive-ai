@@ -6,7 +6,7 @@
 //   - Failure category (bank issue vs. customer issue vs. fraud)
 //   - Customer lifetime value and purchase history
 //   - Payment amount vs. recovery cost threshold
-//   - Bank health and time-of-day signals
+//   - Time-of-day signals
 //
 // This agent answers the question: "CAN we recover this, and SHOULD we try?"
 // =============================================================================

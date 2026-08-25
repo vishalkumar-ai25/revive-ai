@@ -149,7 +149,6 @@ export interface PipelineResult {
 export interface PipelineContext {
   event: PaymentFailureEvent;
   customerHistory: CustomerHistory;
-  bankHealth: BankHealthSignal;
 }
 
 /** Historical data about the customer (used by Risk Assessment Agent). */
@@ -158,14 +157,6 @@ export interface CustomerHistory {
   lifetimeValue: number;
   previousFailures: number;
   daysSinceLastPurchase: number | null;
-}
-
-/** Real-time health signal for a bank (used by Diagnosis Agent). */
-export interface BankHealthSignal {
-  bank: string;
-  currentSuccessRate: number; // 0.0 - 1.0
-  avgSuccessRate: number; // 0.0 - 1.0
-  isOutage: boolean;
 }
 
 // ---------------------------------------------------------------------------
