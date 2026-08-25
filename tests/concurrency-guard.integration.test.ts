@@ -290,8 +290,6 @@ describe("Concurrency Guard — Row-Level Locking Integration Test", { skip: !is
 
     // 6. Fast forward clock to 9:01 AM IST
     const morningTime = new Date(Date.UTC(2025, 0, 16, 3, 31, 0));
-    clock.advance(10.5); // Advance 10.5 hours from 16:30 to 03:00 next day? No, wait. 16:30 to 03:31 is 11 hours and 1 minute.
-    // Better: just instantiate a new engine for the new time, or recreate clock.
     const morningClock = new VirtualClock(morningTime);
     const morningEngine = new RecoveryEngine(morningClock);
     
