@@ -582,33 +582,7 @@ export class RecoveryEngine {
 
 
 
-  /**
-   * Compatibility shim: Intake failure then immediately tick at current clock time.
-   */
-  async processFailure(event: PaymentFailureEvent): Promise<{
-    paymentId: string;
-    strategy: string;
-    outcome: string;
-    processingTimeMs: number;
-  }> {
-    const intakeResult = await this.intake(event);
 
-    if (intakeResult.outcome === "STOPPED_BY_RULE") {
-      return intakeResult;
-    }
-
-    const tickResults = await this.tick(this.clock.now());
-    const matchedTick = tickResults.find(
-      (r) => r.paymentId === intakeResult.paymentId,
-    );
-
-    return {
-      paymentId: intakeResult.paymentId,
-      strategy: matchedTick ? matchedTick.strategy : intakeResult.strategy,
-      outcome: matchedTick ? matchedTick.outcome : intakeResult.outcome,
-      processingTimeMs: intakeResult.processingTimeMs,
-    };
-  }
 
   // -------------------------------------------------------------------------
   // Helpers

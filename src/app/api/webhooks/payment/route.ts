@@ -85,7 +85,20 @@ export async function POST(req: Request) {
     };
 
     const engine = new RecoveryEngine();
-    const result = await engine.processFailure(event);
+    const intakeResult = await engine.intake(event);
+    let result = intakeResult;
+
+    if (intakeResult.outcome !== "STOPPED_BY_RULE") {
+      const tickResults = await engine.tick(new Date());
+      const matchedTick = tickResults.find((r) => r.paymentId === intakeResult.paymentId);
+      
+      result = {
+        paymentId: intakeResult.paymentId,
+        strategy: matchedTick ? matchedTick.strategy : intakeResult.strategy,
+        outcome: matchedTick ? matchedTick.outcome : intakeResult.outcome,
+        processingTimeMs: intakeResult.processingTimeMs,
+      };
+    }
 
     return NextResponse.json({
       success: true,

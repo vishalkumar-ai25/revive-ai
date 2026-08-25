@@ -420,7 +420,7 @@ signature change needed.
 ### §12.3 RecoveryEngine — `intake()` + `tick()`
 
 #### `intake(event)`
-Everything `processFailure()` does today through Step 4, but Step 5 changes: instead of
+Everything the previous architecture did through Step 4, but Step 5 changes: instead of
 calling `simulateOutcome()` immediately, creates the first `RecoveryAttempt` as
 `outcome: PENDING`, `executedAt: null`, `scheduledAt` = StrategyAgent's computed value.
 Returns without simulating.
@@ -455,9 +455,6 @@ For each fetched attempt:
      next candidate. If stops: `Payment.status = DEAD`. If passes: call
      `pipeline.processRetry()` → create next attempt as `PENDING`.
 
-#### `processFailure()` compatibility shim
-`processFailure(event)` = `intake(event)` then immediately `tick(clock.now())`. Preserves
-single-shot behavior for existing callers and tests where scheduledAt is in the past.
 
 ---
 
