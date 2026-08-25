@@ -76,6 +76,10 @@ const ERROR_DESCRIPTIONS: Record<string, string[]> = {
 // Generator
 // ---------------------------------------------------------------------------
 
+export interface SyntheticPaymentEvent extends PaymentFailureEvent {
+  groundTruthRecoveryProbability: number;
+}
+
 export class PaymentGenerator {
   private merchantId: string;
   private clock: Clock;
@@ -88,8 +92,8 @@ export class PaymentGenerator {
   /**
    * Generate a batch of realistic failed payment events.
    */
-  generateBatch(count: number): PaymentFailureEvent[] {
-    const events: PaymentFailureEvent[] = [];
+  generateBatch(count: number): SyntheticPaymentEvent[] {
+    const events: SyntheticPaymentEvent[] = [];
 
     for (let i = 0; i < count; i++) {
       events.push(this.generateSingle(i));
@@ -101,7 +105,7 @@ export class PaymentGenerator {
   /**
    * Generate a single realistic failed payment event.
    */
-  generateSingle(index: number): PaymentFailureEvent {
+  generateSingle(index: number): SyntheticPaymentEvent {
     const method = this.weightedRandom(SIMULATION.METHOD_DISTRIBUTION) as PaymentMethod;
     const errorCode = this.weightedRandom(SIMULATION.FAILURE_DISTRIBUTION);
     const bank = SIMULATION.BANKS[Math.floor(Math.random() * SIMULATION.BANKS.length)]!;
@@ -123,6 +127,25 @@ export class PaymentGenerator {
 
     const descriptions = ERROR_DESCRIPTIONS[errorCode] ?? ["Unknown error"];
 
+    const customerTotalPurchases = Math.floor(Math.random() * 10);
+    const customerLifetimeValue = Math.floor(Math.random() * 50000);
+
+    // Calculate a ground truth probability independent of risk agent
+    let baseRate = 0.4;
+    if (errorCode === "BANK_TIMEOUT" || errorCode === "NETWORK_ERROR") baseRate += 0.2;
+    if (errorCode === "INSUFFICIENT_FUNDS" || errorCode === "CARD_DECLINED") baseRate -= 0.15;
+    if (errorCode === "FRAUD_DETECTED" || errorCode === "SUSPECTED_FRAUD") baseRate = 0;
+    if (amount < 2000) baseRate += 0.1;
+    if (customerTotalPurchases > 3) baseRate += 0.1;
+
+    // Add noise
+    let groundTruth = baseRate + (Math.random() * 0.15 - 0.075);
+    groundTruth = Math.max(0, Math.min(1, groundTruth));
+
+    if (errorCode === "FRAUD_DETECTED" || errorCode === "SUSPECTED_FRAUD") {
+        groundTruth = 0;
+    }
+
     return {
       externalId: `pay_sim_${Date.now()}_${index.toString().padStart(5, "0")}`,
       merchantId: this.merchantId,
@@ -142,8 +165,9 @@ export class PaymentGenerator {
         ? `mandate_${index.toString().padStart(4, "0")}`
         : null,
       timestamp,
-      customerTotalPurchases: Math.floor(Math.random() * 10),
-      customerLifetimeValue: Math.floor(Math.random() * 50000),
+      customerTotalPurchases,
+      customerLifetimeValue,
+      groundTruthRecoveryProbability: groundTruth,
     };
   }
 

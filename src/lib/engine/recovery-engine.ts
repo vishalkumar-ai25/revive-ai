@@ -36,6 +36,7 @@ export class RecoveryEngine {
   private pipeline: RecoveryPipeline;
   private stoppingRules: StoppingRulesEngine;
   private clock: Clock;
+  public simulationGroundTruths = new Map<string, number>();
 
   constructor(clock: Clock = new SystemClock()) {
     this.clock = clock;
@@ -405,10 +406,12 @@ export class RecoveryEngine {
     }
 
     // Simulate recovery outcome based on probability
-    const recoveryProbability =
-      payment.failureEvent?.recoveryProbability ?? 0.5;
+    // TASK 1: Use generator's ground truth, NOT the agent's predicted probability
+    const agentProbability = payment.failureEvent?.recoveryProbability ?? 0.5;
+    const groundTruth = this.simulationGroundTruths.get(payment.externalId) ?? agentProbability;
+    
     const isSimulatedSuccess = this.simulateOutcome(
-      recoveryProbability,
+      groundTruth,
       dueAttempt.strategy,
     );
     const outcome = isSimulatedSuccess ? "SUCCESS" : "FAILED";

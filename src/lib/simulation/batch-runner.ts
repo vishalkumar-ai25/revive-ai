@@ -35,10 +35,13 @@ interface BatchReport {
   quietHoursDeferrals: number;
   retryCapTerminations: number;
   belowMinAmountHalted: number;
+  calibrationBuckets: { bucket: string; predictedAvg: number; actualRate: number; count: number }[];
+  brierScore: number;
 }
 
 type PaymentWithAttempts = Payment & {
   recoveryAttempts: RecoveryAttempt[];
+  failureEvent: import("@prisma/client").FailureEvent | null;
 };
 
 export class BatchRunner {
@@ -81,7 +84,12 @@ export class BatchRunner {
       await Promise.all(
         chunk.map(async (event) => {
           try {
-            await this.engine.intake(event);
+            // Register ground truth separately and omit from what the pipeline sees
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { groundTruthRecoveryProbability, ...agentEvent } = event as any;
+            this.engine.simulationGroundTruths.set(event.externalId, groundTruthRecoveryProbability);
+            
+            await this.engine.intake(agentEvent);
             ingestedCount++;
           } catch (error) {
             console.error(`  ❌ Error ingesting payment:`, error);
@@ -139,6 +147,7 @@ export class BatchRunner {
         recoveryAttempts: {
           orderBy: { attemptNumber: "asc" },
         },
+        failureEvent: true,
       },
     });
 
@@ -219,6 +228,50 @@ export class BatchRunner {
       (a) => a.stoppedByRule === "BELOW_MIN_AMOUNT",
     ).length;
 
+    // Calibration and Brier Score
+    const buckets: Record<string, { count: number; sumPred: number; recovered: number }> = {
+      "0-10%": { count: 0, sumPred: 0, recovered: 0 },
+      "10-20%": { count: 0, sumPred: 0, recovered: 0 },
+      "20-30%": { count: 0, sumPred: 0, recovered: 0 },
+      "30-40%": { count: 0, sumPred: 0, recovered: 0 },
+      "40-50%": { count: 0, sumPred: 0, recovered: 0 },
+      "50-60%": { count: 0, sumPred: 0, recovered: 0 },
+      "60-70%": { count: 0, sumPred: 0, recovered: 0 },
+      "70-80%": { count: 0, sumPred: 0, recovered: 0 },
+      "80-90%": { count: 0, sumPred: 0, recovered: 0 },
+      "90-100%": { count: 0, sumPred: 0, recovered: 0 },
+    };
+
+    let brierSum = 0;
+    let validForBrier = 0;
+
+    for (const p of payments) {
+      if (p.failureEvent) {
+        const pred = p.failureEvent.recoveryProbability;
+        const actual = p.status === "RECOVERED" ? 1 : 0;
+        brierSum += Math.pow(pred - actual, 2);
+        validForBrier++;
+
+        let bucketIdx = Math.floor(pred * 10);
+        if (bucketIdx === 10) bucketIdx = 9; // 1.0 goes to 90-100%
+        const bucketKeys = Object.keys(buckets);
+        const b = buckets[bucketKeys[bucketIdx]!];
+        if (b) {
+          b.count++;
+          b.sumPred += pred;
+          b.recovered += actual;
+        }
+      }
+    }
+
+    const brierScore = validForBrier > 0 ? brierSum / validForBrier : 0;
+    const calibrationBuckets = Object.entries(buckets).map(([bucket, data]) => ({
+      bucket,
+      count: data.count,
+      predictedAvg: data.count > 0 ? data.sumPred / data.count : 0,
+      actualRate: data.count > 0 ? data.recovered / data.count : 0,
+    }));
+
     return {
       totalPayments,
       totalAmountAtRisk: Math.round(totalAmountAtRisk),
@@ -234,6 +287,8 @@ export class BatchRunner {
       quietHoursDeferrals,
       retryCapTerminations,
       belowMinAmountHalted,
+      calibrationBuckets,
+      brierScore,
     };
   }
 
@@ -325,6 +380,15 @@ ${strategyLines}`);
     Retry Cap Terminations:      ${report.retryCapTerminations} transactions halted at 4 attempts
     Below Min Amount Halted:     ${report.belowMinAmountHalted} transactions under ₹50
     Total Stopped by Rules:      ${report.stoppedByRules} payments marked DEAD
+
+  PART 5: RISK MODEL CALIBRATION:
+    Brier Score:                 ${report.brierScore.toFixed(4)} (lower is better)
+    
+    Bucket      | Count | Predicted Avg | Actual Recovery Rate
+    ----------------------------------------------------------
+${report.calibrationBuckets.map(b => 
+      `    ${b.bucket.padEnd(11)} | ${b.count.toString().padEnd(5)} | ${(b.predictedAvg * 100).toFixed(1).padStart(4)}%        | ${(b.actualRate * 100).toFixed(1).padStart(4)}%`
+    ).join("\n")}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `);

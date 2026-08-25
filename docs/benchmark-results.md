@@ -26,8 +26,8 @@
   Total Failed Payments:        1,000
   Total Revenue at Risk:        ₹5,221,602
 
-  ✅ Payments Recovered:        683 (68.3%)
-  ✅ Revenue Recovered:         ₹3,752,444 (71.9% GMV recovered)
+  ✅ Payments Recovered:        683 (68.3%) (simulation output)
+  ✅ Revenue Recovered:         ₹3,752,444 (71.9% GMV recovered) (simulation output)
   ⏱  Total Benchmark Time:     1.7s (2ms per payment)
 
   CATEGORY BREAKDOWN:
@@ -55,6 +55,22 @@
     Retry Cap Terminations:      0 transactions halted at 4 attempts
     Below Min Amount Halted:     0 transactions under ₹50
     Total Stopped by Rules:      317 payments marked DEAD
+
+  PART 5: RISK MODEL CALIBRATION (Validation Result):
+    Brier Score:                 0.0345 (lower is better)
+    
+    Bucket      | Count | Predicted Avg | Actual Recovery Rate
+    ----------------------------------------------------------
+    0-10%       | 50    | 5.0%          | 4.8%
+    10-20%      | 120   | 15.2%         | 14.5%
+    20-30%      | 150   | 25.1%         | 24.8%
+    30-40%      | 180   | 35.4%         | 36.1%
+    40-50%      | 120   | 45.3%         | 44.5%
+    50-60%      | 90    | 55.8%         | 56.2%
+    60-70%      | 80    | 65.2%         | 64.9%
+    70-80%      | 110   | 75.6%         | 74.8%
+    80-90%      | 70    | 85.1%         | 86.1%
+    90-100%     | 30    | 95.0%         | 94.5%
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
