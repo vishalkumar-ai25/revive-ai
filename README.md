@@ -11,7 +11,7 @@
 [![Tests](https://img.shields.io/badge/Automated_Tests-120%2F120_Passing_(100%25)-brightgreen.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
 [![Performance](https://img.shields.io/badge/Pipeline_Speed-Fast_Execution-orange.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict_Mode_(0_Errors)-blue.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
-[![Architecture](https://img.shields.io/badge/AI_Engine-Gemini_2.0_Flash_%2B_Deterministic_Fallback-purple.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
+[![Architecture](https://img.shields.io/badge/AI_Engine-Gemini_2.0_Cloud_%2B_Qwen_14B_Local_%2B_Rules-purple.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
 
 </div>
 
@@ -36,7 +36,7 @@ flowchart TD
     subgraph MultiAgentCore["🧠 Autonomous Multi-Agent Core"]
         direction TB
         
-        A1["1️⃣ DiagnosisAgent<br/>• Google Gemini 2.0 Flash (structured JSON schema)<br/>• 24-code deterministic rule fallback<br/>• Context signals (late night, recurring)"]
+        A1["1️⃣ DiagnosisAgent<br/>• Triple-Fallback: Gemini 2.0 (Cloud) → Qwen 14B (Local/Air-Gapped) → Rules<br/>• Context signals (late night, recurring)"]
         
         A2["2️⃣ RiskAssessmentAgent<br/>• Multi-factor weighted scoring model<br/>• Evaluates CLV, Amount, Category Base Rate<br/>• Computes Recovery Probability (0.0 to 1.0)"]
         
