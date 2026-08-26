@@ -76,7 +76,7 @@ export class BatchRunner {
       );
 
     // Reduced from 20 to 10 to prevent macOS socket exhaustion when running locally
-    const CONCURRENCY_LIMIT = 10;
+    const CONCURRENCY_LIMIT = 3;
     const eventChunks = chunkArray(events, CONCURRENCY_LIMIT);
     
     let ingestedCount = 0;

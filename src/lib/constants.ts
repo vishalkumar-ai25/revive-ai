@@ -240,7 +240,7 @@ export const MANDATE_RULES = {
 
 export const LLM_CONFIG = {
   /** Gemini model to use for agent reasoning */
-  MODEL_NAME: "gemini-2.0-flash",
+  MODEL_NAME: "gemini-3.6-flash",
 
   /** Maximum tokens for agent responses */
   MAX_OUTPUT_TOKENS: 1024,
