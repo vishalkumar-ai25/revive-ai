@@ -33,8 +33,8 @@ export class RecoveryPipeline {
   private strategyAgent: StrategyAgent;
   private auditLogger: AuditLogger;
 
-  constructor(clock: Clock = new SystemClock(), llmClient?: GoogleGenerativeAI) {
-    this.diagnosisAgent = new DiagnosisAgent(llmClient);
+  constructor(clock: Clock = new SystemClock(), llmClient?: GoogleGenerativeAI, ollamaUrl?: string) {
+    this.diagnosisAgent = new DiagnosisAgent(llmClient, ollamaUrl);
     this.riskAgent = new RiskAssessmentAgent();
     this.strategyAgent = new StrategyAgent(clock);
     this.auditLogger = new AuditLogger();
@@ -115,7 +115,7 @@ export class RecoveryPipeline {
    * Run risk assessment and strategy selection for a retry attempt
    * using a pre-existing diagnosis (e.g. reconstructed from FailureEvent).
    *
-   * Skips DiagnosisAgent (no Gemini LLM call) and emits NO DIAGNOSIS_COMPLETE
+   * Skips DiagnosisAgent (no LLM call) and emits NO DIAGNOSIS_COMPLETE
    * audit entry, while audit-logging RISK_ASSESSED and STRATEGY_SELECTED.
    */
   async processRetry(

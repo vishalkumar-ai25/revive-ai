@@ -1,12 +1,14 @@
 // =============================================================================
 // DIAGNOSIS AGENT
 // =============================================================================
-// Analyzes a raw payment failure event and classifies it into a structured
-// diagnosis: failure category, root cause, confidence score, and whether
+// Analyzes raw PaymentFailureEvent data to determine the root cause,
+// categorize the failure, and calculate an initial confidence score that
 // the payment is recoverable.
 //
-// Uses Google Gemini LLM for nuanced cases with automatic fallback to
-// deterministic rule matching when the API key is missing or the LLM fails.
+// Multi-Model Architecture:
+// 1. Tries Google Gemini (Cloud) if API key is present.
+// 2. Falls back to Ollama (Air-Gapped/On-Premise) if URL is present.
+// 3. Falls back to deterministic rule matching if AI is unavailable.
 // =============================================================================
 
 import { DiagnosisResultSchema } from "../schemas";
@@ -52,8 +54,10 @@ const ERROR_CODE_MAP: Record<string, FailureCategory> = {
 
 export class DiagnosisAgent {
   private genAI: GoogleGenerativeAI | null = null;
+  private ollamaBaseUrl: string | null = null;
 
-  constructor(llmClient?: GoogleGenerativeAI) {
+  constructor(llmClient?: GoogleGenerativeAI, ollamaUrl?: string) {
+    // 1. Setup Gemini Cloud (Primary for Judges)
     if (llmClient) {
       this.genAI = llmClient;
     } else {
@@ -62,33 +66,51 @@ export class DiagnosisAgent {
         this.genAI = new GoogleGenerativeAI(apiKey);
       }
     }
+
+    // 2. Setup Ollama On-Premise (For heavy batching / air-gapped privacy)
+    if (ollamaUrl) {
+      this.ollamaBaseUrl = ollamaUrl;
+    } else {
+      const url = process.env.OLLAMA_BASE_URL;
+      if (url && url.trim().length > 0) {
+        this.ollamaBaseUrl = url;
+      }
+    }
   }
 
   /**
-   * Diagnose a payment failure event.
-   * Attempts LLM-based diagnosis first, falls back to deterministic rules.
+   * Diagnose a payment failure event using a cascading fallback strategy.
    */
   async diagnose(event: PaymentFailureEvent): Promise<DiagnosisResult> {
-    // Always try LLM first for richer reasoning
+    // Attempt 1: Cloud AI (Gemini)
     if (this.genAI) {
       try {
-        return await this.diagnoseLLM(event);
+        return await this.diagnoseGemini(event);
       } catch (error) {
-        console.warn("[DiagnosisAgent] LLM failed, falling back to rules:", error);
+        console.warn("[DiagnosisAgent] Gemini Cloud failed, attempting failover...", error);
       }
     }
 
-    // Fallback: deterministic rule-based diagnosis
+    // Attempt 2: Air-Gapped AI (Ollama)
+    if (this.ollamaBaseUrl) {
+      try {
+        return await this.diagnoseOllama(event);
+      } catch (error) {
+        console.warn("[DiagnosisAgent] Ollama Local failed, falling back to deterministic rules:", error);
+      }
+    }
+
+    // Attempt 3: Deterministic Rules
     return this.diagnoseRuleBased(event);
   }
 
   // -------------------------------------------------------------------------
-  // LLM-Based Diagnosis
+  // LLM Logic: Gemini Cloud
   // -------------------------------------------------------------------------
 
-  private async diagnoseLLM(event: PaymentFailureEvent): Promise<DiagnosisResult> {
+  private async diagnoseGemini(event: PaymentFailureEvent): Promise<DiagnosisResult> {
     const model = this.genAI!.getGenerativeModel({
-      model: LLM_CONFIG.MODEL_NAME,
+      model: "gemini-3.6-flash", // Hardcoded safely for fallback
       generationConfig: {
         temperature: LLM_CONFIG.TEMPERATURE,
         maxOutputTokens: LLM_CONFIG.MAX_OUTPUT_TOKENS,
@@ -96,7 +118,90 @@ export class DiagnosisAgent {
       },
     });
 
-    const prompt = `You are a Payment Failure Diagnosis Agent for an Indian payment gateway.
+    const result = await model.generateContent(this.buildPrompt(event));
+    const text = result.response.text();
+    const parsed = DiagnosisResultSchema.safeParse(JSON.parse(text));
+    if (!parsed.success) throw new Error("Invalid Gemini diagnosis payload");
+    
+    return parsed.data as DiagnosisResult;
+  }
+
+  // -------------------------------------------------------------------------
+  // LLM Logic: Ollama Local (Air-Gapped)
+  // -------------------------------------------------------------------------
+
+  private async diagnoseOllama(event: PaymentFailureEvent): Promise<DiagnosisResult> {
+    const response = await fetch(`${this.ollamaBaseUrl}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: LLM_CONFIG.MODEL_NAME, // e.g. qwen2.5:14b
+        prompt: this.buildPrompt(event, true),
+        stream: false,
+        format: "json",
+        options: {
+          temperature: LLM_CONFIG.TEMPERATURE,
+          num_predict: LLM_CONFIG.MAX_OUTPUT_TOKENS,
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ollama API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    let text = data.response;
+    
+    // Aggressively clean markdown blocks Qwen sometimes injects
+    text = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+    const parsed = DiagnosisResultSchema.safeParse(JSON.parse(text));
+    if (!parsed.success) throw new Error("Invalid Ollama diagnosis payload");
+
+    return parsed.data as DiagnosisResult;
+  }
+
+  // -------------------------------------------------------------------------
+  // Rule-Based Diagnosis (Deterministic Fallback)
+  // -------------------------------------------------------------------------
+
+  private diagnoseRuleBased(event: PaymentFailureEvent): DiagnosisResult {
+    const signals: DiagnosisSignal[] = [];
+
+    const mappedCategory = ERROR_CODE_MAP[event.errorCode];
+    if (mappedCategory) {
+      signals.push({ name: "error_code_match", value: event.errorCode, weight: 0.9 });
+    }
+
+    const hour = event.timestamp.getHours();
+    const isLateNight = hour >= 23 || hour <= 2;
+    if (isLateNight && (mappedCategory === "BANK_TIMEOUT" || mappedCategory === "UPI_PSP_ERROR")) {
+      signals.push({ name: "late_night_failure", value: `Payment at ${hour}:00`, weight: 0.7 });
+    }
+
+    if (event.isRecurring) {
+      signals.push({ name: "recurring_payment", value: "recurring", weight: 0.6 });
+    }
+
+    const category: FailureCategory = mappedCategory ?? "UNKNOWN";
+    const isRecoverable = category !== "FRAUD_BLOCK";
+
+    return {
+      category,
+      rootCause: this.generateRootCause(category, event),
+      confidence: mappedCategory ? 0.85 : 0.4,
+      isRecoverable,
+      signals,
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // Helpers
+  // -------------------------------------------------------------------------
+
+  private buildPrompt(event: PaymentFailureEvent, forceRawJson: boolean = false): string {
+    const base = `You are a Payment Failure Diagnosis Agent for an Indian payment gateway.
 Analyze this failed payment and classify it.
 
 PAYMENT EVENT:
@@ -114,7 +219,7 @@ BANK_TIMEOUT, INSUFFICIENT_FUNDS, CARD_DECLINED, NETWORK_ERROR, UPI_PSP_ERROR,
 OTP_EXPIRED, LIMIT_EXCEEDED, FRAUD_BLOCK, MANDATE_EXPIRED, CHECKOUT_ABANDONED,
 SUBSCRIPTION_FAILED, UNKNOWN
 
-Respond in JSON:
+Respond in JSON ONLY.
 {
   "category": "<FailureCategory>",
   "rootCause": "<human-readable explanation of why this payment failed>",
@@ -124,87 +229,24 @@ Respond in JSON:
     { "name": "<signal name>", "value": "<signal value>", "weight": <0.0-1.0> }
   ]
 }`;
-
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-    const parsed = DiagnosisResultSchema.safeParse(JSON.parse(text));
-    if (!parsed.success) {
-      throw new Error("Invalid Gemini diagnosis payload");
-    }
-
-    return parsed.data as DiagnosisResult;
+    return forceRawJson ? base + "\nDo not use markdown blocks like ```json." : base;
   }
-
-  // -------------------------------------------------------------------------
-  // Rule-Based Diagnosis (Deterministic Fallback)
-  // -------------------------------------------------------------------------
-
-  private diagnoseRuleBased(event: PaymentFailureEvent): DiagnosisResult {
-    const signals: DiagnosisSignal[] = [];
-
-    // Signal 1: Direct error code mapping
-    const mappedCategory = ERROR_CODE_MAP[event.errorCode];
-    if (mappedCategory) {
-      signals.push({
-        name: "error_code_match",
-        value: event.errorCode,
-        weight: 0.9,
-      });
-    }
-
-    // Signal 2: Time-based analysis (late night = higher bank failure rate)
-    const hour = event.timestamp.getHours();
-    const isLateNight = hour >= 23 || hour <= 2;
-    if (isLateNight && (mappedCategory === "BANK_TIMEOUT" || mappedCategory === "UPI_PSP_ERROR")) {
-      signals.push({
-        name: "late_night_failure",
-        value: `Payment at ${hour}:00 — known high-failure window`,
-        weight: 0.7,
-      });
-    }
-
-    // Signal 3: Subscription / Mandate context
-    if (event.isRecurring) {
-      signals.push({
-        name: "recurring_payment",
-        value: event.subscriptionId ?? event.mandateId ?? "recurring",
-        weight: 0.6,
-      });
-    }
-
-    const category: FailureCategory = mappedCategory ?? "UNKNOWN";
-    const isRecoverable = category !== "FRAUD_BLOCK";
-    const confidence = mappedCategory ? 0.85 : 0.4;
-
-    return {
-      category,
-      rootCause: this.generateRootCause(category, event),
-      confidence,
-      isRecoverable,
-      signals,
-    };
-  }
-
-  // -------------------------------------------------------------------------
-  // Helpers
-  // -------------------------------------------------------------------------
 
   private generateRootCause(category: FailureCategory, event: PaymentFailureEvent): string {
     const rootCauses: Record<string, string> = {
-      BANK_TIMEOUT: `${event.bank ?? "Bank"} server did not respond within the timeout window. Common during peak hours.`,
-      INSUFFICIENT_FUNDS: `Customer's ${event.method} account has insufficient balance for ₹${event.amount}.`,
-      CARD_DECLINED: `${event.bank ?? "Issuing bank"} declined the card transaction. Possible reasons: unusual pattern, security flag, or card restrictions.`,
-      NETWORK_ERROR: `Network connectivity issue between payment gateway and ${event.bank ?? "bank"}. Transaction could not complete.`,
-      UPI_PSP_ERROR: `UPI PSP (${event.upiApp ?? "unknown"}) experienced a processing error. May indicate PSP-level degradation.`,
-      OTP_EXPIRED: `Customer did not enter OTP within the allowed time window. The authentication session expired.`,
-      LIMIT_EXCEEDED: `Transaction of ₹${event.amount} exceeds the customer's daily/per-transaction limit for ${event.method}.`,
-      FRAUD_BLOCK: `${event.bank ?? "Bank"} flagged this transaction as potentially fraudulent. Recovery should NOT be attempted.`,
-      MANDATE_EXPIRED: `Auto-debit mandate has expired or been revoked by the customer. Re-authorization required.`,
-      CHECKOUT_ABANDONED: `Customer opened the checkout page but did not attempt payment. Likely distracted or reconsidering.`,
-      SUBSCRIPTION_FAILED: `Recurring subscription payment failed. The subscription is at risk of cancellation.`,
-      UNKNOWN: `Unable to determine root cause from error code: ${event.errorCode}. Manual review recommended.`,
+      BANK_TIMEOUT: `${event.bank ?? "Bank"} server did not respond.`,
+      INSUFFICIENT_FUNDS: `Insufficient balance for ₹${event.amount}.`,
+      CARD_DECLINED: `Card transaction declined.`,
+      NETWORK_ERROR: `Network connectivity issue.`,
+      UPI_PSP_ERROR: `UPI PSP error.`,
+      OTP_EXPIRED: `OTP session expired.`,
+      LIMIT_EXCEEDED: `Transaction limit exceeded.`,
+      FRAUD_BLOCK: `Flagged as potentially fraudulent.`,
+      MANDATE_EXPIRED: `Auto-debit mandate expired.`,
+      CHECKOUT_ABANDONED: `Customer abandoned checkout.`,
+      SUBSCRIPTION_FAILED: `Recurring payment failed.`,
+      UNKNOWN: `Manual review recommended.`,
     };
-
     return rootCauses[category] ?? rootCauses["UNKNOWN"]!;
   }
 }
