@@ -179,7 +179,7 @@ The raw "% recovered" number is a *simulation output*, not a validation result, 
 
 The **Part 5: Risk Model Calibration** section in the benchmark report below is the primary validation result, demonstrating that the agent's predicted probabilities closely map to actual simulation recovery rates.
 
-### Actual Benchmark Report Output (Hosted Neon, 1,000 Payments)
+### Actual Benchmark Report Output (Local Postgres + Qwen 14B, 1,000 Payments)
 
 ```text
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -187,46 +187,53 @@ The **Part 5: Risk Model Calibration** section in the benchmark report below is 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   Total Failed Payments:        1,000
-  Total Revenue at Risk:        ₹4,120,500
+  Total Revenue at Risk:        ₹5,414,237
 
-  ✅ Payments Recovered:        684 (68.4%)
-  ✅ Revenue Recovered:         ₹2,925,555 (71.0% GMV recovered)
-  ⏱  Total Benchmark Time:     142.5s (142ms per payment)
+  ✅ Payments Recovered:        537 (53.7%)
+  ✅ Revenue Recovered:         ₹2,631,493 (48.6% GMV recovered)
+  ⏱  Total Benchmark Time:     2478.4s (2478ms per payment)
 
   CATEGORY BREAKDOWN:
-    INSUFFICIENT_FUNDS       242 / 310 recovered        (78.0%)
-    BANK_TIMEOUT             205 / 290 recovered        (70.6%)
-    NETWORK_ERROR            180 / 220 recovered        (81.8%)
-    CARD_DECLINED            57 / 130 recovered         (43.8%)
-    FRAUD_DETECTED           0 / 50 recovered           (0.0%)
+    BANK_TIMEOUT             220 / 280 recovered        (78.6%)
+    INSUFFICIENT_FUNDS       66 / 183 recovered         (36.1%)
+    UPI_PSP_ERROR            56 / 107 recovered         (52.3%)
+    NETWORK_ERROR            79 / 106 recovered         (74.5%)
+    CARD_DECLINED            27 / 101 recovered         (26.7%)
+    CHECKOUT_ABANDONED       32 / 80 recovered          (40.0%)
+    OTP_EXPIRED              25 / 58 recovered          (43.1%)
+    LIMIT_EXCEEDED           18 / 40 recovered          (45.0%)
+    SUBSCRIPTION_FAILED      11 / 25 recovered          (44.0%)
+    FRAUD_DETECTED           0 / 16 recovered           (0.0%)
+    MANDATE_EXPIRED          3 / 4 recovered            (75.0%)
 
   STRATEGY BREAKDOWN:
-    SMART_RETRY              412 successful out of 650 attempted
-    CUSTOMER_NUDGE           190 successful out of 280 attempted
-    ALT_PAYMENT              82 successful out of 160 attempted
+    SMART_RETRY              355 successful out of 493 attempted
+    ALT_PAYMENT              114 successful out of 321 attempted
+    CUSTOMER_NUDGE           68 successful out of 163 attempted
+    DO_NOTHING               0 successful out of 256 attempted
 
   STOPPING RULES & COMPLIANCE ENFORCEMENT:
-    Fraud Blocks Enforced:       50 transactions (100% compliance)
-    Quiet Hours Deferrals:       112 nudges deferred to 9:00 AM IST
-    Retry Cap Terminations:      185 transactions halted at 4 attempts
-    Below Min Amount Halted:     45 transactions under ₹50
-    Total Stopped by Rules:      316 payments marked DEAD
+    Fraud Blocks Enforced:       16 transactions (100% compliance)
+    Quiet Hours Deferrals:       0 nudges deferred to 9:00 AM IST
+    Retry Cap Terminations:      0 transactions halted at 4 attempts
+    Below Min Amount Halted:     0 transactions under ₹50
+    Total Stopped by Rules:      463 payments marked DEAD
 
-  PART 5: RISK MODEL CALIBRATION (HELD-OUT GROUND TRUTH):
-    Brier Score:                 0.0412 (lower is better)
+  PART 5: RISK MODEL CALIBRATION:
+    Brier Score:                 0.2578 (lower is better)
     
     Bucket      | Count | Predicted Avg | Actual Recovery Rate
     ----------------------------------------------------------
-    0-10%       | 65    |  0.0%         |  0.0%
-    10-20%      | 42    | 14.2%         | 11.9%
-    20-30%      | 88    | 25.1%         | 22.7%
-    30-40%      | 95    | 34.8%         | 31.5%
-    40-50%      | 110   | 45.3%         | 42.7%
-    50-60%      | 120   | 55.6%         | 53.3%
-    60-70%      | 145   | 65.2%         | 64.1%
-    70-80%      | 130   | 75.8%         | 77.6%
-    80-90%      | 115   | 84.9%         | 86.0%
-    90-100%     | 90    | 94.5%         | 96.6%
+    0-10%       | 0     |  0.0%        |  0.0%
+    10-20%      | 0     |  0.0%        |  0.0%
+    20-30%      | 0     |  0.0%        |  0.0%
+    30-40%      | 0     |  0.0%        |  0.0%
+    40-50%      | 22    | 46.5%        | 27.3%
+    50-60%      | 144   | 56.0%        | 41.0%
+    60-70%      | 321   | 64.4%        | 46.1%
+    70-80%      | 353   | 74.1%        | 64.6%
+    80-90%      | 144   | 82.5%        | 66.7%
+    90-100%     | 0     |  0.0%        |  0.0%
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
