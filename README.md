@@ -88,7 +88,7 @@ flowchart TD
 
 1. **[`DiagnosisAgent`](file:///Users/vishalkumar/revive-ai/src/lib/agents/diagnosis-agent.ts) (Root Cause Identification)**
    - Analyzes raw error codes, bank latency profiles, payment methods, and timestamps.
-   - Uses **Google Gemini 2.0 Flash** for unstructured error context with an instant 24-code **deterministic rule fallback** if the API is unconfigured or rate-limited.
+   - Features a **Triple-Fallback Architecture**: Uses Google Gemini 2.0 Flash (Cloud) as primary, instantly falls back to an air-gapped **Qwen 2.5 14B** via Ollama for privacy-sensitive batch runs, and ultimately defaults to a 24-code deterministic rules engine if no AI is available.
    - Extracts contextual signals (e.g. `late_night_failure` during 11 PM–2 AM IST, `recurring_payment` mandate context).
 
 2. **[`RiskAssessmentAgent`](file:///Users/vishalkumar/revive-ai/src/lib/agents/risk-assessment-agent.ts) (Recovery Viability Scoring)**
@@ -129,26 +129,44 @@ Every recovery decision in ReviveAI writes an immutable provenance log capturing
   {
     "agentName": "DiagnosisAgent",
     "action": "DIAGNOSIS_COMPLETE",
-    "reasoning": "Classified BANK_TIMEOUT with 85% confidence. Root cause: HDFC bank gateway failed to respond within 15000ms. Detected late_night_failure signal (23:42 IST).",
-    "metadata": { "category": "BANK_TIMEOUT", "confidence": 0.85, "isRecoverable": true }
+    "reasoning": "Category: CARD_DECLINED | Root cause: The card used for the transaction is restricted and does not permit transactions, likely due to security or fraud prevention measures. | Confidence: 100% | Recoverable: false",
+    "metadata": {
+      "category": "CARD_DECLINED",
+      "confidence": 1,
+      "signals": [
+        { "name": "Error Code", "value": "CARD_DECLINED", "weight": 1 },
+        { "name": "Error Description", "value": "Restricted card - transaction not permitted", "weight": 1 }
+      ]
+    }
   },
   {
     "agentName": "RiskAssessmentAgent",
     "action": "RISK_ASSESSED",
-    "reasoning": "Recovery probability: 0.78. High-value loyal customer (6 purchases, ₹14,500 LTV). Category base recovery rate for BANK_TIMEOUT is 75%.",
-    "metadata": { "recoveryProbability": 0.78, "shouldAttemptRecovery": true }
+    "reasoning": "Recovery not attempted due to stopping rule evaluation.",
+    "metadata": {
+      "recoveryProbability": 0.61,
+      "shouldAttemptRecovery": false,
+      "factors": [
+        { "name": "failure_category", "score": 0.25, "detail": "CARD_DECLINED has a base recovery rate of 25%", "weight": 0.35 },
+        { "name": "diagnosis_confidence", "score": 1, "detail": "Diagnosis confidence: 100% - high certainty", "weight": 0.1 }
+      ]
+    }
   },
   {
     "agentName": "StrategyAgent",
     "action": "STRATEGY_SELECTED",
-    "reasoning": "Selected SMART_RETRY. Identified bank maintenance window (HDFC overnight batch). Scheduled retry for next optimal clearing window at 10:15 AM IST.",
-    "metadata": { "strategy": "SMART_RETRY", "optimalExecutionTime": "2026-08-22T04:45:00.000Z" }
+    "reasoning": "Recovery skipped: Recovery not attempted due to stopping rule evaluation.",
+    "metadata": {
+      "strategy": "DO_NOTHING",
+      "confidence": 0.95,
+      "executionParams": { "escalationLevel": "LEVEL_5_DEAD" }
+    }
   },
   {
     "agentName": "StoppingRulesEngine",
-    "action": "OUTREACH_DEFERRED",
-    "reasoning": "Quiet hours active (11:42 PM IST). Customer nudge prohibited between 9:00 PM – 9:00 AM IST. Backend smart retry scheduled; customer communication deferred to 9:00 AM IST.",
-    "metadata": { "rule": "QUIET_HOURS", "rescheduledFor": "2026-08-22T03:30:00.000Z" }
+    "action": "RECOVERY_STOPPED",
+    "reasoning": "Agent elected to DO_NOTHING. Recovery aborted.",
+    "metadata": { "rule": "STRATEGY_DO_NOTHING", "intendedStrategy": "DO_NOTHING" }
   }
 ]
 ```
@@ -268,7 +286,9 @@ npm test
 ### Prerequisites
 - Node.js >= 20.x
 - PostgreSQL database (Neon, Supabase, or local)
-- `GOOGLE_AI_API_KEY` ([Get free key](https://aistudio.google.com/)) *(Optional: Reviewers can run the full 1,000-payment benchmark **without an API key**. If omitted, the DiagnosisAgent instantly falls back to the 24-code deterministic mapping for zero-friction testing.)*
+- `GOOGLE_AI_API_KEY` ([Get free key](https://aistudio.google.com/)) *(Optional for cloud AI)*
+- `OLLAMA_BASE_URL` *(Optional: Set to `http://localhost:11434` to run the entire pipeline securely on air-gapped local LLMs like Qwen 14B)*
+*Note: If neither AI is configured, the DiagnosisAgent instantly falls back to a 24-code deterministic mapping for zero-friction testing.*
 
 ### Installation
 
@@ -305,7 +325,7 @@ Visit **`http://localhost:3000`** to access the Merchant Recovery Dashboard.
 
 - **Framework**: Next.js 14 (App Router, Server Actions, Route Handlers)
 - **Language**: TypeScript (Strict mode enabled — 0 errors)
-- **AI & LLM**: Google Gemini 2.0 Flash (`@google/generative-ai`)
+- **AI & LLM**: Google Gemini 2.0 Flash (Cloud), Qwen 2.5 14B / Ollama (Air-gapped on-premise)
 - **Database & ORM**: PostgreSQL + Prisma ORM
 - **UI & Styling**: Tailwind CSS, Lucide Icons, Radix UI
 
