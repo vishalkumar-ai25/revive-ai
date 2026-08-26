@@ -21,7 +21,7 @@ export const DiagnosisResultSchema = z.object({
   signals: z.array(
     z.object({
       name: z.string(),
-      value: z.string(),
+      value: z.coerce.string(),
       weight: z.number(),
     })
   ),
