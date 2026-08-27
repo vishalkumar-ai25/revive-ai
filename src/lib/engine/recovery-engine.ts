@@ -17,6 +17,7 @@ import { StoppingRulesEngine } from "./stopping-rules";
 import type { CustomerHistory, DiagnosisResult, PaymentFailureEvent } from "@/lib/types";
 import { type Clock, SystemClock } from "@/lib/time/clock";
 import type { EscalationLevel } from "@prisma/client";
+import { EmailDispatcher } from "@/lib/notifications/email-dispatcher";
 
 export interface IntakeResult {
   paymentId: string;
@@ -403,6 +404,34 @@ export class RecoveryEngine {
         strategy: dueAttempt.strategy,
         outcome: outcome,
       };
+    }
+
+    // -----------------------------------------------------------------------
+    // Dispatch email for CUSTOMER_NUDGE with email channel
+    // -----------------------------------------------------------------------
+    if (dueAttempt.strategy === "CUSTOMER_NUDGE" && dueAttempt.channel === "email") {
+      try {
+        const customerEmail = payment.customer?.email;
+        if (customerEmail) {
+          await EmailDispatcher.sendRecoveryEmail(
+            payment.id,
+            customerEmail,
+            payment.amount,
+            dueAttempt.messageContent ?? "Your payment could not be processed. Please retry.",
+          );
+        }
+      } catch (emailError) {
+        console.error("[RecoveryEngine] Email dispatch failed, continuing:", emailError);
+        await db.auditLog.create({
+          data: {
+            agentName: "RecoveryEngine",
+            action: "EMAIL_DISPATCH_ERROR",
+            reasoning: `Email dispatch failed for CUSTOMER_NUDGE attempt #${dueAttempt.attemptNumber}: ${String(emailError)}`,
+            metadata: { error: String(emailError), strategy: dueAttempt.strategy, attemptNumber: dueAttempt.attemptNumber },
+            payment: { connect: { id: payment.id } },
+          },
+        });
+      }
     }
 
     // Simulate recovery outcome based on probability
