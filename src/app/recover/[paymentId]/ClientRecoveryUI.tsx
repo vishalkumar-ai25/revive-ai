@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CreditCard, Smartphone, ShieldCheck, Loader2 } from "lucide-react";
 import type { Payment, Customer } from "@prisma/client";
+import { CUSTOMER_SAFE_MESSAGES } from "@/lib/constants";
 
 export default function ClientRecoveryUI({
   payment,
@@ -62,7 +63,7 @@ export default function ClientRecoveryUI({
             <h2 className="text-2xl font-bold">Complete Your Payment</h2>
             <p className="mt-2 text-indigo-100 opacity-90 text-sm">
               Your previous payment of ₹{payment.amount.toLocaleString()} did not go through due to 
-              a {(payment.errorCode || "UNKNOWN").replace(/_/g, " ").toLowerCase()} error.
+              {CUSTOMER_SAFE_MESSAGES[payment.errorCode || "UNKNOWN"] || CUSTOMER_SAFE_MESSAGES["UNKNOWN"]}.
             </p>
           </div>
 

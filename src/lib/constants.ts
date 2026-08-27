@@ -163,6 +163,27 @@ export const STRATEGY_WEIGHTS: Record<
 };
 
 // ---------------------------------------------------------------------------
+// Customer-Safe Messaging — RBI Compliance
+// ---------------------------------------------------------------------------
+// DO NOT expose raw error codes or diagnostic reasons (e.g. "Insufficient Funds")
+// to the customer. Use these safe, neutral fallbacks.
+
+export const CUSTOMER_SAFE_MESSAGES: Record<string, string> = {
+  BANK_TIMEOUT: "a temporary delay with your bank",
+  INSUFFICIENT_FUNDS: "an issue verifying your payment method",
+  UPI_PSP_ERROR: "a temporary connectivity issue with your UPI app",
+  CARD_DECLINED: "your payment could not be completed",
+  NETWORK_ERROR: "a secure connection could not be established",
+  CHECKOUT_ABANDONED: "the checkout process was not completed",
+  OTP_EXPIRED: "the authentication time expired",
+  LIMIT_EXCEEDED: "your payment limits restricted this transaction",
+  SUBSCRIPTION_FAILED: "your recurring payment could not be processed",
+  FRAUD_DETECTED: "a security hold on this transaction",
+  MANDATE_EXPIRED: "an expired payment mandate",
+  UNKNOWN: "a temporary issue processing your payment",
+};
+
+// ---------------------------------------------------------------------------
 // Simulation Defaults
 // ---------------------------------------------------------------------------
 
