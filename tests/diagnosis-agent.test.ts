@@ -35,7 +35,7 @@ function createMockEvent(overrides: Partial<PaymentFailureEvent> = {}): PaymentF
 }
 
 describe("DiagnosisAgent — Error Code Mapping", () => {
-  const agent = new DiagnosisAgent();
+  const agent = new DiagnosisAgent(undefined, undefined, true);
 
   const testCases = [
     { errorCode: "BANK_TIMEOUT", expectedCategory: "BANK_TIMEOUT", isRecoverable: true },

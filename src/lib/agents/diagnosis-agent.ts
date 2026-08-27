@@ -56,7 +56,9 @@ export class DiagnosisAgent {
   private genAI: GoogleGenerativeAI | null = null;
   private ollamaBaseUrl: string | null = null;
 
-  constructor(llmClient?: GoogleGenerativeAI, ollamaUrl?: string) {
+  constructor(llmClient?: GoogleGenerativeAI, ollamaUrl?: string, disableLlm: boolean = false) {
+    if (disableLlm) return; // Pure deterministic mode — skip all LLM setup
+
     // 1. Setup Gemini Cloud (Primary for Judges)
     if (llmClient) {
       this.genAI = llmClient;
@@ -181,7 +183,7 @@ export class DiagnosisAgent {
     }
 
     if (event.isRecurring) {
-      signals.push({ name: "recurring_payment", value: "recurring", weight: 0.6 });
+      signals.push({ name: "recurring_payment", value: event.subscriptionId ?? event.mandateId ?? "recurring", weight: 0.6 });
     }
 
     const category: FailureCategory = mappedCategory ?? "UNKNOWN";
@@ -245,7 +247,7 @@ Respond in JSON ONLY.
       MANDATE_EXPIRED: `Auto-debit mandate expired.`,
       CHECKOUT_ABANDONED: `Customer abandoned checkout.`,
       SUBSCRIPTION_FAILED: `Recurring payment failed.`,
-      UNKNOWN: `Manual review recommended.`,
+      UNKNOWN: `Unable to determine root cause from error code: ${event.errorCode}. Manual review recommended.`,
     };
     return rootCauses[category] ?? rootCauses["UNKNOWN"]!;
   }

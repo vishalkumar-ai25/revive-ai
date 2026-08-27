@@ -33,8 +33,8 @@ export class RecoveryPipeline {
   private strategyAgent: StrategyAgent;
   private auditLogger: AuditLogger;
 
-  constructor(clock: Clock = new SystemClock(), llmClient?: GoogleGenerativeAI, ollamaUrl?: string) {
-    this.diagnosisAgent = new DiagnosisAgent(llmClient, ollamaUrl);
+  constructor(clock: Clock = new SystemClock(), llmClient?: GoogleGenerativeAI, ollamaUrl?: string, disableLlm: boolean = false) {
+    this.diagnosisAgent = new DiagnosisAgent(llmClient, ollamaUrl, disableLlm);
     this.riskAgent = new RiskAssessmentAgent();
     this.strategyAgent = new StrategyAgent(clock);
     this.auditLogger = new AuditLogger();

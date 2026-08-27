@@ -47,6 +47,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
     }
 
+    // The X-Razorpay-Signature is checked between line 50 - 53
     const expectedSig = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
     if (signature.length !== expectedSig.length || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 403 });

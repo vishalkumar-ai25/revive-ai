@@ -127,7 +127,7 @@ describe("RecoveryPipeline — Full Multi-Agent Flow (process())", () => {
 
 describe("RecoveryPipeline — Rule-Based Fallback & Error Resilience", () => {
   const clock = new VirtualClock(new Date("2025-01-15T04:30:00.000Z"));
-  const pipeline = new RecoveryPipeline(clock);
+  const pipeline = new RecoveryPipeline(clock, undefined, undefined, true);
 
   it("Maps all primary payment gateway error codes to valid FailureCategory enums", async () => {
     const errorCodesToTest = [
