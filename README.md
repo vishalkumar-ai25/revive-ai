@@ -204,7 +204,70 @@ The **Part 5: Risk Model Calibration** section in the benchmark report below is 
 
 > **Notice:** We built a lightning-fast deterministic fallback so reviewers can instantly test the pipeline locally in seconds without needing GPU hardware. However, deploying the heavy Qwen 14B AI agent yields a measurable **+0.3% lift** in total revenue recovered by discovering deeper root causes.
 
-### Actual Benchmark Report Output (Local Postgres + Qwen 14B, 1,000 Payments, seed=42)
+
+<details>
+<summary><strong>View Baseline Report (Deterministic Rules, ~3.5s)</strong></summary>
+
+```text
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  📊 REVIVE AI — BATCH RECOVERY BENCHMARK REPORT (1,000 PAYMENTS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Total Failed Payments:        1,000
+  Total Revenue at Risk:        ₹5,514,987
+
+  ✅ Payments Recovered:        529 (52.9%)
+  ✅ Revenue Recovered:         ₹2,706,337 (49.1% GMV recovered)
+  ⏱  Total Benchmark Time:     3.6s (4ms per payment)
+
+  CATEGORY BREAKDOWN:
+    BANK_TIMEOUT             217 / 281 recovered        (77.2%)
+    INSUFFICIENT_FUNDS       63 / 175 recovered         (36.0%)
+    UPI_PSP_ERROR            59 / 127 recovered         (46.5%)
+    CARD_DECLINED            32 / 97 recovered          (33.0%)
+    CHECKOUT_ABANDONED       45 / 89 recovered          (50.6%)
+    NETWORK_ERROR            54 / 79 recovered          (68.4%)
+    OTP_EXPIRED              30 / 67 recovered          (44.8%)
+    SUBSCRIPTION_FAILED      12 / 31 recovered          (38.7%)
+    LIMIT_EXCEEDED           16 / 31 recovered          (51.6%)
+    FRAUD_DETECTED           0 / 19 recovered           (0.0%)
+    MANDATE_EXPIRED          1 / 4 recovered            (25.0%)
+
+  STRATEGY BREAKDOWN:
+    SMART_RETRY              330 successful out of 487 attempted
+    ALT_PAYMENT              112 successful out of 307 attempted
+    CUSTOMER_NUDGE           87 successful out of 187 attempted
+    DO_NOTHING               0 successful out of 276 attempted
+
+  STOPPING RULES & COMPLIANCE ENFORCEMENT:
+    Fraud Blocks Enforced:       19 transactions (100% compliance)
+    Quiet Hours Deferrals:       0 nudges deferred to 9:00 AM IST
+    Retry Cap Terminations:      0 transactions halted at 4 attempts
+    Below Min Amount Halted:     0 transactions under ₹50
+    Total Stopped by Rules:      471 payments marked DEAD
+
+  PART 5: RISK MODEL CALIBRATION:
+    Brier Score:                 0.2625 (lower is better)
+    
+    Bucket      | Count | Predicted Avg | Actual Recovery Rate
+    ----------------------------------------------------------
+    0-10%       | 0     |  0.0%        |  0.0%
+    10-20%      | 0     |  0.0%        |  0.0%
+    20-30%      | 0     |  0.0%        |  0.0%
+    30-40%      | 0     |  0.0%        |  0.0%
+    40-50%      | 31    | 47.1%        | 32.3%
+    50-60%      | 131   | 55.8%        | 44.3%
+    60-70%      | 294   | 64.3%        | 46.9%
+    70-80%      | 386   | 73.9%        | 59.3%
+    80-90%      | 139   | 83.0%        | 67.6%
+    90-100%     | 0     |  0.0%        |  0.0%
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+```
+</details>
+
+ (Local Postgres + Qwen 14B, 1,000 Payments, seed=42)
 
 ```text
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
