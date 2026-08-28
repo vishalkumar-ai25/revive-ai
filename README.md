@@ -261,29 +261,6 @@ The **Part 5: Risk Model Calibration** section in the benchmark report below is 
 
 ---
 
-## ⚡ Known Limitations & Performance Notes
-
-The benchmark above (Qwen 14B + local Postgres) completed 1,000 payments in **2478.4s (~2478ms per payment)**. A separate rules-only run on local Postgres (`docs/benchmark_1000_payments_canonical.txt`) completed the same workload in **1.7s (~2ms per payment)** — roughly a **1,200× throughput gap**.
-
-### Why the gap exists
-
-| Bottleneck | Impact |
-|---|---|
-| **Sequential per-payment LLM calls** | Each payment triggers a `DiagnosisAgent` call to a local Ollama/Qwen 14B instance. The 14B-parameter model generates ~20–50 tokens/sec, adding ~2–3s of GPU inference per payment. The deterministic rules fallback replaces this with a sub-millisecond hash-map lookup. |
-| **Low concurrency limit** | `batch-runner.ts` processes ingestion in chunks of `CONCURRENCY_LIMIT = 3` (deliberately reduced from 20 to prevent local Postgres connection/socket exhaustion during development). This serializes most of the batch. |
-| **Database round-trips** | Each payment involves multiple Prisma `create`/`update` calls. On a hosted database (e.g., Neon), each round-trip adds network latency vs. a local Unix-socket Postgres connection. |
-
-### Concrete next steps for production throughput
-
-1. **Batch/parallelize diagnosis calls.** Group payments with identical `errorCode` values and make a single LLM call per group, or run multiple Ollama instances behind a load balancer to process payments concurrently.
-2. **Raise concurrency on pooled Postgres.** In production, use a connection pooler (e.g., PgBouncer or Neon's built-in pooler) and increase `CONCURRENCY_LIMIT` back toward 20+ without risking socket exhaustion.
-3. **Cache diagnosis results.** Many payments share the same `(errorCode, errorDescription, method)` tuple. Caching the `DiagnosisAgent` output for repeated identical inputs would eliminate redundant LLM calls.
-4. **Async queue-based processing.** Replace the synchronous batch loop with a job queue (e.g., BullMQ / pg-boss) so payments are processed as workers become available, decoupling ingestion from LLM throughput.
-
-These are engineering improvements for a production deployment; the current architecture is deliberately optimized for correctness and auditability during the hackathon evaluation phase.
-
----
-
 ## 🧪 Automated Test Suite (`npm test`)
 
 Run the complete test suite verifying all 5 agents, escalation ladders, mandate sequencing, and stopping rules:
