@@ -1,4 +1,5 @@
 import { nextIstTime } from "@/lib/time/ist";
+import { random } from "@/lib/simulation/rng";
 // =============================================================================
 // RECOVERY ENGINE
 // =============================================================================
@@ -637,7 +638,7 @@ export class RecoveryEngine {
     const modifier = strategyModifiers[strategy] ?? 1.0;
     const adjustedProbability = Math.min(recoveryProbability * modifier, 0.95);
 
-    return Math.random() < adjustedProbability;
+    return random() < adjustedProbability;
   }
 
   /**

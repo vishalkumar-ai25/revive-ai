@@ -33,6 +33,7 @@ import type {
 } from "@/lib/types";
 import { type Clock, SystemClock } from "@/lib/time/clock";
 import { MandateRetrySequencer } from "./mandate-sequencer";
+import { random } from "@/lib/simulation/rng";
 import { toIstHour, nextIstTime } from "@/lib/time/ist";
 
 // ---------------------------------------------------------------------------
@@ -343,7 +344,7 @@ export class StrategyAgent {
     }
 
     // Otherwise schedule soon, but slightly randomized within the next hour
-    return new Date(now.getTime() + (10 + Math.random() * 50) * 60000);
+    return new Date(now.getTime() + (10 + random() * 50) * 60000);
   }
 
   /** Calculate nudge time — 2 hours from now, but respect quiet hours. */

@@ -9,6 +9,7 @@ import type { PaymentMethod } from "@prisma/client";
 import { SIMULATION } from "@/lib/constants";
 import type { PaymentFailureEvent } from "@/lib/types";
 import { type Clock, SystemClock } from "@/lib/time/clock";
+import { random } from "@/lib/simulation/rng";
 
 // ---------------------------------------------------------------------------
 // Error descriptions per failure type (realistic messages from Indian banks)
@@ -108,27 +109,27 @@ export class PaymentGenerator {
   generateSingle(index: number): SyntheticPaymentEvent {
     const method = this.weightedRandom(SIMULATION.METHOD_DISTRIBUTION) as PaymentMethod;
     const errorCode = this.weightedRandom(SIMULATION.FAILURE_DISTRIBUTION);
-    const bank = SIMULATION.BANKS[Math.floor(Math.random() * SIMULATION.BANKS.length)]!;
+    const bank = SIMULATION.BANKS[Math.floor(random() * SIMULATION.BANKS.length)]!;
     const upiApp = method === "UPI"
-      ? SIMULATION.UPI_APPS[Math.floor(Math.random() * SIMULATION.UPI_APPS.length)]!
+      ? SIMULATION.UPI_APPS[Math.floor(random() * SIMULATION.UPI_APPS.length)]!
       : null;
 
     // Generate realistic amount with Indian price distribution
     const amount = this.generateAmount();
 
     // Generate realistic timestamp within the last 24 hours
-    const offsetMs = Math.floor(Math.random() * 24 * 60 * 60 * 1000);
+    const offsetMs = Math.floor(random() * 24 * 60 * 60 * 1000);
     const timestamp = new Date(this.clock.now().getTime() - offsetMs);
 
     // Determine if this is a recurring payment
     const isRecurring = errorCode === "SUBSCRIPTION_FAILED" ||
       errorCode === "MANDATE_EXPIRED" ||
-      Math.random() < 0.08;
+      random() < 0.08;
 
     const descriptions = ERROR_DESCRIPTIONS[errorCode] ?? ["Unknown error"];
 
-    const customerTotalPurchases = Math.floor(Math.random() * 10);
-    const customerLifetimeValue = Math.floor(Math.random() * 50000);
+    const customerTotalPurchases = Math.floor(random() * 10);
+    const customerLifetimeValue = Math.floor(random() * 50000);
 
     // Calculate a ground truth probability independent of risk agent
     let baseRate = 0.4;
@@ -139,7 +140,7 @@ export class PaymentGenerator {
     if (customerTotalPurchases > 3) baseRate += 0.1;
 
     // Add noise
-    let groundTruth = baseRate + (Math.random() * 0.15 - 0.075);
+    let groundTruth = baseRate + (random() * 0.15 - 0.075);
     groundTruth = Math.max(0, Math.min(1, groundTruth));
 
     if (errorCode === "FRAUD_DETECTED" || errorCode === "SUSPECTED_FRAUD") {
@@ -156,7 +157,7 @@ export class PaymentGenerator {
       bank,
       upiApp,
       errorCode,
-      errorDescription: descriptions[Math.floor(Math.random() * descriptions.length)]!,
+      errorDescription: descriptions[Math.floor(random() * descriptions.length)]!,
       isRecurring,
       subscriptionId: isRecurring && errorCode === "SUBSCRIPTION_FAILED"
         ? `sub_${index.toString().padStart(4, "0")}`
@@ -180,20 +181,20 @@ export class PaymentGenerator {
    * Distribution: many small (₹99-₹999), some medium (₹1000-₹5000), few large (₹5000+).
    */
   private generateAmount(): number {
-    const r = Math.random();
+    const r = random();
 
     if (r < 0.3) {
       // Small: ₹99 - ₹999
-      return SIMULATION.MIN_AMOUNT + Math.random() * 900;
+      return SIMULATION.MIN_AMOUNT + random() * 900;
     } else if (r < 0.7) {
       // Medium: ₹1,000 - ₹5,000
-      return 1000 + Math.random() * 4000;
+      return 1000 + random() * 4000;
     } else if (r < 0.9) {
       // Large: ₹5,000 - ₹15,000
-      return 5000 + Math.random() * 10000;
+      return 5000 + random() * 10000;
     } else {
       // High-value: ₹15,000 - ₹25,000
-      return 15000 + Math.random() * (SIMULATION.MAX_AMOUNT - 15000);
+      return 15000 + random() * (SIMULATION.MAX_AMOUNT - 15000);
     }
   }
 
@@ -203,11 +204,11 @@ export class PaymentGenerator {
   private weightedRandom(distribution: Record<string, number>): string {
     const entries = Object.entries(distribution);
     const totalWeight = entries.reduce((sum, [, weight]) => sum + weight, 0);
-    let random = Math.random() * totalWeight;
+    let roll = random() * totalWeight;
 
     for (const [key, weight] of entries) {
-      random -= weight;
-      if (random <= 0) return key;
+      roll -= weight;
+      if (roll <= 0) return key;
     }
 
     // Fallback to first entry

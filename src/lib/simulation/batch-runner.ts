@@ -19,6 +19,7 @@ import { PaymentGenerator } from "./payment-generator";
 import { SIMULATION, STOPPING_RULES, MANDATE_RULES } from "@/lib/constants";
 import { type Clock, VirtualClock } from "@/lib/time/clock";
 import type { Payment, RecoveryAttempt } from "@prisma/client";
+import { setGlobalSeed } from "@/lib/simulation/rng";
 
 interface BatchReport {
   totalPayments: number;
@@ -404,6 +405,12 @@ async function main() {
     process.argv[2] ?? String(SIMULATION.DEFAULT_BATCH_SIZE),
     10,
   );
+
+  // Parse --seed=N from CLI args (default: 42)
+  const seedArg = process.argv.find((a) => a.startsWith("--seed="));
+  const seed = seedArg ? parseInt(seedArg.split("=")[1]!, 10) : 42;
+  setGlobalSeed(seed);
+  console.info(`  🎲 Seed: ${seed}`);
 
   // Ensure at least one merchant exists for simulation
   const merchant = await db.merchant.upsert({
