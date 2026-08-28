@@ -197,18 +197,12 @@ The raw "% recovered" number is a *simulation output*, not a validation result, 
 
 The **Part 5: Risk Model Calibration** section in the benchmark report below is the primary validation result, demonstrating that the agent's predicted probabilities closely map to actual simulation recovery rates.
 
-### Benchmark Results (1,000 Payments)
+### Benchmark Results (Local Postgres + Deterministic Rules, 1,000 Payments, seed=42)
 
-* **Baseline (Deterministic Rules):** 52.6% recovered | Time: ~3.5s
-* **AI Engine (Qwen 14B Local):** 52.9% recovered | Time: ~4291.3s
-
-> **Notice:** We built a lightning-fast deterministic fallback so reviewers can instantly test the pipeline locally in seconds without needing GPU hardware. However, deploying the heavy Qwen 14B AI agent yields a measurable **+0.3% lift** in total revenue recovered by discovering deeper root causes.
-
-
-<details>
-<summary><strong>View Baseline Report (Deterministic Rules, ~3.5s)</strong></summary>
+> **Notice:** We built a lightning-fast deterministic fallback so reviewers can instantly test the pipeline locally in seconds without needing GPU hardware. The pipeline processes 1,000 simulated payments in ~3.6s.
 
 ```text
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   📊 REVIVE AI — BATCH RECOVERY BENCHMARK REPORT (1,000 PAYMENTS)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -265,67 +259,6 @@ The **Part 5: Risk Model Calibration** section in the benchmark report below is 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ```
-</details>
-
- (Local Postgres + Qwen 14B, 1,000 Payments, seed=42)
-
-```text
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  📊 REVIVE AI — BATCH RECOVERY BENCHMARK REPORT (1,000 PAYMENTS)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  Total Failed Payments:        1,000
-  Total Revenue at Risk:        ₹5,514,987
-
-  ✅ Payments Recovered:        529 (52.9%)
-  ✅ Revenue Recovered:         ₹2,595,176 (47.1% GMV recovered)
-  ⏱  Total Benchmark Time:     4291.3s (4291ms per payment)
-
-  CATEGORY BREAKDOWN:
-    BANK_TIMEOUT             219 / 281 recovered        (77.9%)
-    INSUFFICIENT_FUNDS       56 / 175 recovered         (32.0%)
-    UPI_PSP_ERROR            64 / 127 recovered         (50.4%)
-    CARD_DECLINED            19 / 97 recovered          (19.6%)
-    CHECKOUT_ABANDONED       40 / 89 recovered          (44.9%)
-    NETWORK_ERROR            68 / 79 recovered          (86.1%)
-    OTP_EXPIRED              34 / 67 recovered          (50.7%)
-    SUBSCRIPTION_FAILED      15 / 31 recovered          (48.4%)
-    LIMIT_EXCEEDED           13 / 31 recovered          (41.9%)
-    FRAUD_DETECTED           0 / 19 recovered           (0.0%)
-    MANDATE_EXPIRED          1 / 4 recovered            (25.0%)
-
-  STRATEGY BREAKDOWN:
-    SMART_RETRY              351 successful out of 486 attempted
-    CUSTOMER_NUDGE           89 successful out of 186 attempted
-    ALT_PAYMENT              89 successful out of 272 attempted
-    DO_NOTHING               0 successful out of 288 attempted
-
-  STOPPING RULES & COMPLIANCE ENFORCEMENT:
-    Fraud Blocks Enforced:       19 transactions (100% compliance)
-    Quiet Hours Deferrals:       0 nudges deferred to 9:00 AM IST
-    Retry Cap Terminations:      0 transactions halted at 4 attempts
-    Below Min Amount Halted:     0 transactions under ₹50
-    Total Stopped by Rules:      454 payments marked DEAD
-
-  PART 5: RISK MODEL CALIBRATION:
-    Brier Score:                 0.2534 (lower is better)
-    
-    Bucket      | Count | Predicted Avg | Actual Recovery Rate
-    ----------------------------------------------------------
-    0-10%       | 0     |  0.0%        |  0.0%
-    10-20%      | 0     |  0.0%        |  0.0%
-    20-30%      | 0     |  0.0%        |  0.0%
-    30-40%      | 2     | 38.5%        |  0.0%
-    40-50%      | 32    | 46.2%        | 21.9%
-    50-60%      | 109   | 54.9%        | 33.9%
-    60-70%      | 292   | 64.4%        | 42.8%
-    70-80%      | 370   | 74.2%        | 61.6%
-    80-90%      | 176   | 83.2%        | 75.0%
-    90-100%     | 0     |  0.0%        |  0.0%
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
 
 *Note: Quiet-hours deferrals appear as `0` in the benchmark because the StrategyAgent proactively schedules nudges for 9:00 AM IST, pre-empting the stopping-rules engine from needing to block them during quiet hours.*
 
