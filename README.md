@@ -111,7 +111,7 @@ flowchart TD
    - Triggers 24-hour pre-debit notifications (`preDebitNotificationSentAt`) prior to each execution, enforcing an operational policy informed by e-mandate industry practice.
 
 5. **[`StoppingRulesEngine`](file:///Users/vishalkumar/revive-ai/src/lib/engine/stopping-rules.ts) (Compliance Guardrails)**
-   - Enforces **6 non-negotiable rules**: Fraud blocks (zero-retry), minimum amount (<₹50), max 4 retries, max 3 nudges, recovery window expiry (72h standard / 168h mandate), and **Quiet Hours** (9:00 PM – 9:00 AM IST).
+   - Enforces **9 non-negotiable rules**: FRAUD_BLOCK (Never retry fraud), STRATEGY_DO_NOTHING (Agent abort), BELOW_MIN_AMOUNT (< ₹50), MAX_RETRIES_EXCEEDED (≥ 4 retries), MAX_NUDGES_EXCEEDED (≥ 3 nudges), RECOVERY_WINDOW_EXPIRED (72h / 168h), MAX_ALT_PAYMENT_EXCEEDED (Cap 1), MAX_ESCALATE_MERCHANT_EXCEEDED (Cap 1), and QUIET_HOURS (9 PM – 9 AM IST).
    - Quiet hours safely defers customer nudges to 9:00 AM IST while permitting silent backend bank retries.
 
 6. **[`AuditLogger`](file:///Users/vishalkumar/revive-ai/src/lib/audit/logger.ts) (Immutable Decision Trail)**
