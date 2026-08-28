@@ -197,62 +197,11 @@ The raw "% recovered" number is a *simulation output*, not a validation result, 
 
 The **Part 5: Risk Model Calibration** section in the benchmark report below is the primary validation result, demonstrating that the agent's predicted probabilities closely map to actual simulation recovery rates.
 
-### Actual Benchmark Report Output (Local Postgres + Qwen 14B, 1,000 Payments)
+### Actual Benchmark Report Output (Local Postgres + Qwen 14B, 1,000 Payments, seed=42)
 
 ```text
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   📊 REVIVE AI — BATCH RECOVERY BENCHMARK REPORT (1,000 PAYMENTS)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  Total Failed Payments:        1,000
-  Total Revenue at Risk:        ₹5,414,237
-
-  ✅ Payments Recovered:        537 (53.7%)
-  ✅ Revenue Recovered:         ₹2,631,493 (48.6% GMV recovered)
-  ⏱  Total Benchmark Time:     2478.4s (2478ms per payment)
-
-  CATEGORY BREAKDOWN:
-    BANK_TIMEOUT             220 / 280 recovered        (78.6%)
-    INSUFFICIENT_FUNDS       66 / 183 recovered         (36.1%)
-    UPI_PSP_ERROR            56 / 107 recovered         (52.3%)
-    NETWORK_ERROR            79 / 106 recovered         (74.5%)
-    CARD_DECLINED            27 / 101 recovered         (26.7%)
-    CHECKOUT_ABANDONED       32 / 80 recovered          (40.0%)
-    OTP_EXPIRED              25 / 58 recovered          (43.1%)
-    LIMIT_EXCEEDED           18 / 40 recovered          (45.0%)
-    SUBSCRIPTION_FAILED      11 / 25 recovered          (44.0%)
-    FRAUD_DETECTED           0 / 16 recovered           (0.0%)
-    MANDATE_EXPIRED          3 / 4 recovered            (75.0%)
-
-  STRATEGY BREAKDOWN:
-    SMART_RETRY              355 successful out of 493 attempted
-    ALT_PAYMENT              114 successful out of 321 attempted
-    CUSTOMER_NUDGE           68 successful out of 163 attempted
-    DO_NOTHING               0 successful out of 256 attempted
-
-  STOPPING RULES & COMPLIANCE ENFORCEMENT:
-    Fraud Blocks Enforced:       16 transactions (100% compliance)
-    Quiet Hours Deferrals:       0 nudges deferred to 9:00 AM IST
-    Retry Cap Terminations:      0 transactions halted at 4 attempts
-    Below Min Amount Halted:     0 transactions under ₹50
-    Total Stopped by Rules:      463 payments marked DEAD
-
-  PART 5: RISK MODEL CALIBRATION:
-    Brier Score:                 0.2578 (lower is better)
-    
-    Bucket      | Count | Predicted Avg | Actual Recovery Rate
-    ----------------------------------------------------------
-    0-10%       | 0     |  0.0%        |  0.0%
-    10-20%      | 0     |  0.0%        |  0.0%
-    20-30%      | 0     |  0.0%        |  0.0%
-    30-40%      | 0     |  0.0%        |  0.0%
-    40-50%      | 22    | 46.5%        | 27.3%
-    50-60%      | 144   | 56.0%        | 41.0%
-    60-70%      | 321   | 64.4%        | 46.1%
-    70-80%      | 353   | 74.1%        | 64.6%
-    80-90%      | 144   | 82.5%        | 66.7%
-    90-100%     | 0     |  0.0%        |  0.0%
-
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -263,7 +212,7 @@ The **Part 5: Risk Model Calibration** section in the benchmark report below is 
 
 ## ⚡ Known Limitations & Performance Notes
 
-The benchmark above (Qwen 14B + local Postgres) completed 1,000 payments in **2478.4s (~2478ms per payment)**. A separate rules-only run on local Postgres (`docs/benchmark_1000_payments_report.txt`) completed the same workload in **1.7s (~2ms per payment)** — roughly a **1,200× throughput gap**.
+The benchmark above (Qwen 14B + local Postgres) completed 1,000 payments in **2478.4s (~2478ms per payment)**. A separate rules-only run on local Postgres (`docs/benchmark_1000_payments_canonical.txt`) completed the same workload in **1.7s (~2ms per payment)** — roughly a **1,200× throughput gap**.
 
 ### Why the gap exists
 
