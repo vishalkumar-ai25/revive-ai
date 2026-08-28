@@ -11,7 +11,7 @@
 [![Tests](https://img.shields.io/badge/Automated_Tests-146%2F146_Passing_(100%25)-brightgreen.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
 [![Performance](https://img.shields.io/badge/Pipeline_Speed-Fast_Execution-orange.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict_Mode_(0_Errors)-blue.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
-[![Architecture](https://img.shields.io/badge/AI_Engine-Gemini_2.0_Cloud_%2B_Qwen_14B_Local_%2B_Rules-purple.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
+[![Architecture](https://img.shields.io/badge/AI_Engine-Gemini_3.6_Flash_Cloud_%2B_Qwen_14B_Local_%2B_Rules-purple.svg?style=flat-square)](https://github.com/vishalkumar-ai25/revive-ai)
 
 </div>
 
@@ -36,7 +36,7 @@ flowchart TD
     subgraph MultiAgentCore["🧠 Autonomous Multi-Agent Core"]
         direction TB
         
-        A1["1️⃣ DiagnosisAgent<br/>• Triple-Fallback: Gemini 2.0 (Cloud) → Qwen 14B (Local/Air-Gapped) → Rules<br/>• Context signals (late night, recurring)"]
+        A1["1️⃣ DiagnosisAgent<br/>• Triple-Fallback: Gemini 3.6 Flash (Cloud) → Qwen 14B (Local/Air-Gapped) → Rules<br/>• Context signals (late night, recurring)"]
         
         A2["2️⃣ RiskAssessmentAgent<br/>• Multi-factor weighted scoring model<br/>• Evaluates CLV, Amount, Category Base Rate<br/>• Computes Recovery Probability (0.0 to 1.0)"]
         
@@ -88,7 +88,7 @@ flowchart TD
 
 1. **[`DiagnosisAgent`](file:///Users/vishalkumar/revive-ai/src/lib/agents/diagnosis-agent.ts) (Root Cause Identification)**
    - Analyzes raw error codes, bank latency profiles, payment methods, and timestamps.
-   - Features a **Triple-Fallback Architecture**: Uses Google Gemini 2.0 Flash (Cloud) as primary, instantly falls back to an air-gapped **Qwen 2.5 14B** via Ollama for privacy-sensitive batch runs, and ultimately defaults to a 24-code deterministic rules engine if no AI is available.
+   - Features a **Triple-Fallback Architecture**: Uses Google Gemini 3.6 Flash (Cloud) as primary, instantly falls back to an air-gapped **Qwen 2.5 14B** via Ollama for privacy-sensitive batch runs, and ultimately defaults to a 24-code deterministic rules engine if no AI is available.
    - Extracts contextual signals (e.g. `late_night_failure` during 11 PM–2 AM IST, `recurring_payment` mandate context).
 
 2. **[`RiskAssessmentAgent`](file:///Users/vishalkumar/revive-ai/src/lib/agents/risk-assessment-agent.ts) (Recovery Viability Scoring)**
@@ -325,7 +325,7 @@ Visit **`http://localhost:3000`** to access the Merchant Recovery Dashboard.
 
 - **Framework**: Next.js 14 (App Router, Server Actions, Route Handlers)
 - **Language**: TypeScript (Strict mode enabled — 0 errors)
-- **AI & LLM**: Google Gemini 2.0 Flash (Cloud), Qwen 2.5 14B / Ollama (Air-gapped on-premise)
+- **AI & LLM**: Google Gemini 3.6 Flash (Cloud), Qwen 2.5 14B / Ollama (Air-gapped on-premise)
 - **Database & ORM**: PostgreSQL + Prisma ORM
 - **UI & Styling**: Tailwind CSS, Lucide Icons, Radix UI
 
