@@ -42,6 +42,7 @@ npm run dev
 
 # Testing
 npm test
+npm run test:offline  # runs the subset of tests that don't require a live database/generated Prisma client — useful for reviewers without Postgres set up
 
 # Batch Benchmark
 npm run simulate 1000

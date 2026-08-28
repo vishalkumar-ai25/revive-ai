@@ -279,6 +279,9 @@ npm test
 # duration_ms 608.56ms
 ```
 
+> [!TIP]
+> If you see a `@prisma/client did not initialize` error, you can run the DB-independent subset with `npm run test:offline` — no Postgres or `npx prisma generate` required.
+
 ---
 
 ## 🚀 Quick Start

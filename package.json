@@ -13,6 +13,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\"",
     "test": "tsx --test $(find tests -name '*.test.ts' | tr '\\n' ' ')",
+    "test:offline": "tsx --test tests/batch-runner.test.ts tests/clock.test.ts tests/diagnosis-agent.test.ts tests/escalation-ladder.test.ts tests/mandate-sequencer.test.ts tests/multi-attempt-lifecycle.test.ts tests/risk-assessment.test.ts tests/stopping-rules.test.ts tests/strategy-agent.test.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
